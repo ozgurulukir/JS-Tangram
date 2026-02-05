@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Ozgur Ulukir
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
