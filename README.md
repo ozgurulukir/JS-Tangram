@@ -1,4 +1,4 @@
-# Zen Tangram
+# Zen Tangram [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A relaxing, web-based implementation of the classic Tangram puzzle game, featuring a built-in level editor.
 
@@ -51,3 +51,8 @@ This project is built with vanilla web technologies, keeping it lightweight and 
    Open your browser and navigate to:
    - **Game:** [http://localhost:8080/tngrm.html](http://localhost:8080/tngrm.html)
    - **Editor:** [http://localhost:8080/editor.html](http://localhost:8080/editor.html)
+
+---
+
+## License
+MIT License. See [LICENSE](LICENSE) for details.
