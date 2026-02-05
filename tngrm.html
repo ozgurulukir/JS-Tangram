@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zen Tangram - Master the Art of Shapes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+  <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+    }
+
+    #game-container {
+      touch-action: none;
+      background-color: #f3f4f6;
+    }
+
+    .btn-action {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-action:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn-action:active {
+      transform: translateY(0);
+    }
+
+    .win-overlay {
+      display: none;
+    }
+
+    .win-overlay.active {
+      display: flex;
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-stone-100 flex items-center justify-center p-4">
+
+  <!-- Win Overlay -->
+  <div id="win-overlay"
+    class="win-overlay fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm items-center justify-center">
+    <div class="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-sm mx-4 transform transition-all scale-110">
+      <div class="text-6xl mb-4">✨</div>
+      <h2 class="text-3xl font-bold text-stone-800 mb-2">Masterpiece!</h2>
+      <p class="text-stone-600 mb-6">You've perfectly arranged the pieces.</p>
+      <button id="next-puzzle-btn"
+        class="w-full py-3 bg-stone-800 text-white font-semibold rounded-xl hover:bg-stone-700 transition-colors">Continue
+        to Next</button>
+    </div>
+  </div>
+
+  <div
+    class="bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-6 md:p-10 max-w-5xl w-full border border-stone-200">
+    <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+      <div>
+        <h1 class="text-4xl font-black text-stone-800 tracking-tight">ZEN <span class="font-light">TANGRAM</span></h1>
+        <p class="text-stone-400 font-medium">Drag, rotate, and arrange the silhouette.</p>
+      </div>
+      <div class="flex flex-col items-end gap-2">
+        <a href="editor.html" class="text-stone-500 hover:text-stone-800 underline text-sm">Level Editor</a>
+        <div class="flex items-center gap-4 bg-stone-50 p-2 rounded-2xl border border-stone-100">
+          <button id="prev-btn"
+            class="p-3 bg-white text-stone-600 hover:text-stone-900 rounded-xl shadow-sm border border-stone-200 transition-all hover:bg-stone-50">←</button>
+          <span id="puzzle-name" class="min-w-32 text-center text-stone-700 font-bold text-lg">Cat</span>
+          <button id="next-btn"
+            class="p-3 bg-white text-stone-600 hover:text-stone-900 rounded-xl shadow-sm border border-stone-200 transition-all hover:bg-stone-50">→</button>
+        </div>
+        <div id="timer" class="text-stone-400 font-mono text-sm font-bold tracking-widest">00:00</div>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+      <!-- Left Panel: Preview & Instructions -->
+      <div class="lg:col-span-3 flex flex-col gap-8 order-2 lg:order-1">
+        <div class="relative group">
+          <div
+            class="absolute -inset-1 bg-gradient-to-tr from-amber-200 to-amber-100 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000">
+          </div>
+          <div
+            class="relative bg-stone-900 rounded-2xl overflow-hidden shadow-xl aspect-square flex items-center justify-center">
+            <div id="preview-container" class="w-full h-full"></div>
+            <div
+              class="absolute bottom-3 left-3 px-3 py-1 bg-white/10 backdrop-blur text-[10px] text-stone-400 rounded-full font-bold uppercase tracking-widest">
+              Target Silhouette</div>
+          </div>
+        </div>
+
+        <div class="bg-stone-50 p-6 rounded-2xl border border-stone-100 space-y-4">
+          <h3 class="text-stone-800 font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Controls
+          </h3>
+          <ul class="text-stone-500 text-sm space-y-3 font-medium">
+            <li class="flex items-center gap-3">
+              <span
+                class="w-8 h-8 flex items-center justify-center bg-white border border-stone-200 rounded-lg text-stone-400">🖱️</span>
+              Drag to move
+            </li>
+            <li class="flex items-center gap-3">
+              <span
+                class="w-8 h-8 flex items-center justify-center bg-white border border-stone-200 rounded-lg text-stone-400">2×</span>
+              Double click to rotate
+            </li>
+            <li class="flex items-center gap-3">
+              <span
+                class="w-8 h-8 flex items-center justify-center bg-white border border-stone-200 rounded-lg text-stone-400">⌨️</span>
+              WASD or Arrows for move
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Center Panel: Board -->
+      <div class="lg:col-span-6 flex flex-col items-center gap-8 order-1 lg:order-2">
+        <div class="relative w-full aspect-square max-w-[480px]">
+          <div class="absolute -inset-2 bg-stone-200 rounded-3xl -rotate-1"></div>
+          <div id="game-container"
+            class="relative bg-stone-50 rounded-2xl shadow-inner border-[12px] border-stone-800 overflow-hidden w-full aspect-square">
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Piece Controls -->
+      <div class="lg:col-span-3 flex flex-col gap-4 order-3">
+        <div class="bg-stone-800 text-white p-6 rounded-2xl shadow-xl space-y-6">
+          <h3 class="text-stone-400 font-bold text-xs uppercase tracking-widest">Piece Actions</h3>
+
+          <div class="grid grid-cols-2 gap-3">
+            <button id="rotate-left-btn"
+              class="btn-action p-4 bg-stone-700 hover:bg-stone-600 rounded-xl flex flex-col items-center gap-2">
+              <span class="text-xl">↺</span>
+              <span class="text-[10px] uppercase font-bold">Left</span>
+            </button>
+            <button id="rotate-right-btn"
+              class="btn-action p-4 bg-stone-700 hover:bg-stone-600 rounded-xl flex flex-col items-center gap-2">
+              <span class="text-xl">↻</span>
+              <span class="text-[10px] uppercase font-bold">Right</span>
+            </button>
+          </div>
+
+          <button id="flip-btn"
+            class="btn-action w-full py-4 bg-stone-700 hover:bg-stone-600 rounded-xl flex items-center justify-center gap-3">  
+            <span class="text-xl">↔</span>
+            <span class="text-[11px] uppercase font-bold tracking-wider">Flip Piece</span>
+          </button>
+
+          <hr class="border-stone-700">
+
+          <button id="check-btn"
+            class="btn-action w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] flex items-center justify-center gap-3">
+            <span class="text-xl">✓</span>
+            <span class="text-[11px] uppercase font-bold tracking-wider">Validate Solution</span>
+          </button>
+
+          <div class="flex gap-2">
+            <button id="reset-btn"
+              class="btn-action flex-1 py-3 bg-stone-900 hover:bg-stone-800 text-stone-400 text-[10px] uppercase font-bold rounded-xl border border-stone-700">Reset</button>
+            <button id="solution-btn"
+              class="btn-action flex-1 py-3 bg-stone-900 hover:bg-stone-800 text-stone-400 text-[10px] uppercase font-bold rounded-xl border border-stone-700">Reveal</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /** 
+     * KONVA.JS TANGRAM EDITOR LOGIC 
+     */
+
+    const BOARD_SIZE = 450;
+    const SNAP_COORD = 15;
+    const ROTATION_STEP = 45;
+    const UNIT = 36;
+    const MAGNET = 20;
+
+    // Matrix Transformation Utility
+    const Mat33 = {
+      identity: () => [1, 0, 0, 0, 1, 0, 0, 0, 1],
+      multiply: (a, b) => {
+        const res = new Array(9).fill(0);
+        for (let i = 0; i < 3; i++) {
+          for (let j = 0; j < 3; j++) {
+            for (let k = 0; k < 3; k++) {
+              res[i * 3 + j] += a[i * 3 + k] * b[k * 3 + j];
+            }
+          }
+        }
+        return res;
+      },
+      translate: (tx, ty) => [1, 0, 0, 0, 1, 0, tx, ty, 1],
+      rotate: (deg) => {
+        const rad = deg * Math.PI / 180;
+        const c = Math.cos(rad);
+        const s = Math.sin(rad);
+        return [c, s, 0, -s, c, 0, 0, 0, 1];
+      },
+      scale: (sx, sy) => [sx, 0, 0, 0, sy, 0, 0, 0, 1],
+      point: (m, p) => ({
+        x: p.x * m[0] + p.y * m[3] + m[6],
+        y: p.x * m[1] + p.y * m[4] + m[7]
+      })
+    };
+
+    const PIECE_DEFS = [
+      { id: 'T1', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#ef4444', off: [2, 1] },
+      { id: 'T2', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#f97316', off: [2, 1] },
+      { id: 'T3', type: 'poly', pts: [0, 0, 2, 0, 0, 2], color: '#22c55e', off: [0.67, 0.67] },
+      { id: 'T4', type: 'poly', pts: [0, 0, 2, 0, 1, 1], color: '#8b5cf6', off: [1, 0.5] },
+      { id: 'T5', type: 'poly', pts: [0, 0, 2, 0, 1, 1], color: '#3b82f6', off: [1, 0.5] },
+      { id: 'SQ', type: 'poly', pts: [1, 0, 2, 1, 1, 2, 0, 1], color: '#eab308', off: [1, 1] },
+      { id: 'PL', type: 'poly', pts: [0, 0, 2, 0, 3, 1, 1, 1], color: '#06b6d4', off: [1.5, 0.5] }
+    ];
+
+    let PUZZLES = [];
+    let stage, mainLayer, currentPieces = [];
+    let selectedPiece = null;
+    let puzzleIndex = 0;
+
+    function getPieceVertices(shape) {
+      const def = PIECE_DEFS.find(d => d.id === shape.id());
+      if (!def) return [];
+      const tr = shape.getTransform();
+      const pts = [];
+      for (let i = 0; i < def.pts.length; i += 2) {
+        pts.push(tr.point({
+          x: def.pts[i] * UNIT,
+          y: def.pts[i + 1] * UNIT
+        }));
+      }
+      return pts;
+    }
+
+    function getInitialPosition(index) {
+      const cols = 4;
+      return {
+        x: (index % cols) * 90 + 50,
+        y: Math.floor(index / cols) * 90 + 300
+      };
+    }
+
+    function init() {
+      // Main Stage
+      const container = document.getElementById('game-container');
+      stage = new Konva.Stage({
+        container: 'game-container',
+        width: BOARD_SIZE,
+        height: BOARD_SIZE
+      });
+      mainLayer = new Konva.Layer();
+      stage.add(mainLayer);
+
+      // Background click to deselect
+      stage.on('click tap', (e) => {
+        if (e.target === stage) {
+          select(null);
+        }
+      });
+
+      // Grid helper
+      for (let i = 0; i < BOARD_SIZE; i += SNAP_COORD * 2) {
+        mainLayer.add(new Konva.Line({ points: [i, 0, i, BOARD_SIZE], stroke: '#e5e7eb', strokeWidth: 1 }));
+        mainLayer.add(new Konva.Line({ points: [0, i, BOARD_SIZE, i], stroke: '#e5e7eb', strokeWidth: 1 }));
+      }
+
+      setupPieces();
+      
+      // Load puzzles to edit existing ones
+      fetch('levels.json')
+        .then(response => response.json())
+        .then(data => {
+          PUZZLES = data;
+          if (PUZZLES.length > 0) {
+            loadPuzzle(0);
+          }
+        })
+        .catch(err => {
+          console.error('Error loading puzzles:', err);
+        });
+
+      setupEvents();
+
+      window.addEventListener('resize', fitToContainer);
+      fitToContainer();
+    }
+
+    function fitToContainer() {
+      const container = document.getElementById('game-container');
+      const scale = container.offsetWidth / BOARD_SIZE;
+      stage.width(container.offsetWidth);
+      stage.height(container.offsetHeight);
+      stage.scale({ x: scale, y: scale });
+      stage.draw();
+    }
+
+    function setupPieces() {
+      PIECE_DEFS.forEach((def, i) => {
+        const initPos = getInitialPosition(i);
+        const shape = new Konva.Line({
+          points: def.pts.map(p => p * UNIT),
+          fill: def.color,
+          stroke: '#444',
+          strokeWidth: 2,
+          closed: true,
+          draggable: true,
+          id: def.id,
+          name: 'piece',
+          offset: { x: def.off[0] * UNIT, y: def.off[1] * UNIT },
+          x: initPos.x,
+          y: initPos.y,
+          shadowColor: 'rgba(0,0,0,0.1)',
+          shadowBlur: 5,
+          shadowOffset: { x: 3, y: 3 },
+          opacity: 0.95
+        });
+
+        shape.on('dragstart', () => {
+          select(shape);
+          shape.moveToTop();
+          shape.shadowOpacity(0.3).shadowOffset({ x: 10, y: 10 });
+        });
+
+        shape.on('dragend', () => handleSnap(shape));
+
+        shape.on('click tap', (e) => {
+          e.cancelBubble = true;
+          if (selectedPiece === shape) {
+            select(null);
+          } else {
+            select(shape);
+          }
+        });
+        shape.on('dblclick dbltap', () => {
+          shape.rotation(shape.rotation() + ROTATION_STEP);
+          mainLayer.draw();
+        });
+
+        mainLayer.add(shape);
+        currentPieces.push(shape);
+      });
+    }
+
+    function handleSnap(shape) {
+      let snapped = false;
+      const thisPts = getPieceVertices(shape);
+      let best = { dist: Infinity, dx: 0, dy: 0 };
+
+      currentPieces.forEach(p => {
+        if (p === shape) return;
+        const otherPts = getPieceVertices(p);
+        thisPts.forEach(tp => {
+          otherPts.forEach(op => {
+            const dx = op.x - tp.x;
+            const dy = op.y - tp.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < MAGNET && dist < best.dist) {
+              best = { dist, dx, dy };
+            }
+          });
+        });
+      });
+
+      if (best.dist < MAGNET) {
+        shape.position({
+          x: shape.x() + best.dx,
+          y: shape.y() + best.dy
+        });
+        snapped = true;
+      }
+
+      if (!snapped) {
+        shape.position({
+          x: Math.round(shape.x() / SNAP_COORD) * SNAP_COORD,
+          y: Math.round(shape.y() / SNAP_COORD) * SNAP_COORD
+        });
+      }
+
+      shape.shadowOpacity(0.1).shadowOffset({ x: 3, y: 3 });
+      mainLayer.draw();
+    }
+
+    function select(piece) {
+      // Deselect previous
+      if (selectedPiece && selectedPiece !== piece) {
+        selectedPiece.stroke('#444');
+        selectedPiece.strokeWidth(2);
+        selectedPiece.shadowBlur(5);
+        selectedPiece.shadowColor('rgba(0,0,0,0.1)');
+        selectedPiece.shadowOffset({ x: 3, y: 3 });
+      }
+
+      if (!piece) {
+        if (selectedPiece) {
+          // If we are just deselecting the current one (and piece is null)
+          selectedPiece.stroke('#444');
+          selectedPiece.strokeWidth(2);
+          selectedPiece.shadowBlur(5);
+          selectedPiece.shadowColor('rgba(0,0,0,0.1)');
+          selectedPiece.shadowOffset({ x: 3, y: 3 });
+          selectedPiece = null;
+          mainLayer.draw();
+        }
+        return;
+      }
+
+      selectedPiece = piece;
+      
+      selectedPiece.stroke('#000');
+      selectedPiece.strokeWidth(3);
+      selectedPiece.shadowBlur(10);
+      selectedPiece.shadowColor('rgba(0,0,0,0.2)');
+      selectedPiece.shadowOffset({ x: 5, y: 5 });
+      selectedPiece.moveToTop();
+      
+      mainLayer.draw();
+    }
+
+    function loadPuzzle(idx) {
+      if (PUZZLES.length === 0) return;
+      puzzleIndex = (idx + PUZZLES.length) % PUZZLES.length;
+      
+      const p = PUZZLES[puzzleIndex];
+      document.getElementById('level-name-input').value = p.name;
+
+      // Position pieces according to solution
+      currentPieces.forEach(piece => {
+          const s = p.sol[piece.id()];
+          if (s) {
+              piece.to({
+                  x: s.x,
+                  y: s.y,
+                  rotation: s.r,
+                  scaleX: s.sx,
+                  duration: 0.5
+              });
+          }
+      });
+    }
+
+    function setupEvents() {
+      document.getElementById('rotate-left-btn').onclick = () => {
+        if (!selectedPiece) return;
+        selectedPiece.rotation(selectedPiece.rotation() - ROTATION_STEP);
+        mainLayer.draw();
+      };
+
+      document.getElementById('rotate-right-btn').onclick = () => {
+        if (!selectedPiece) return;
+        selectedPiece.rotation(selectedPiece.rotation() + ROTATION_STEP);
+        mainLayer.draw();
+      };
+
+      document.getElementById('flip-btn').onclick = () => {
+        if (!selectedPiece) return;
+        selectedPiece.scaleX(selectedPiece.scaleX() * -1);
+        mainLayer.draw();
+      };
+
+      document.getElementById('prev-btn').onclick = () => loadPuzzle(puzzleIndex - 1);
+      document.getElementById('next-btn').onclick = () => loadPuzzle(puzzleIndex + 1);
+
+      document.getElementById('reset-btn').onclick = () => {
+        currentPieces.forEach((p, i) => {
+          p.rotation(0);
+          p.scaleX(1);
+          p.position(getInitialPosition(i));
+        });
+        mainLayer.draw();
+      };
+
+      document.getElementById('save-btn').onclick = saveLevel;
+
+      document.addEventListener('keydown', (e) => {
+        if (!selectedPiece) return;
+        const dist = e.shiftKey ? 1 : 5;
+        switch (e.key) {
+          case 'ArrowLeft': case 'a': selectedPiece.x(selectedPiece.x() - dist); break;
+          case 'ArrowRight': case 'd': selectedPiece.x(selectedPiece.x() + dist); break;
+          case 'ArrowUp': case 'w': selectedPiece.y(selectedPiece.y() - dist); break;
+          case 'ArrowDown': case 's': selectedPiece.y(selectedPiece.y() + dist); break;
+        }
+        mainLayer.draw();
+      });
+    }
+
+    function saveLevel() {
+      const name = document.getElementById('level-name-input').value.trim();
+      if (!name) {
+        alert('Please enter a level name');
+        return;
+      }
+
+      // 1. Calculate Bounding Box to Center Logic
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      
+      // First pass: find bounds
+      currentPieces.forEach(p => {
+        const pts = getPieceVertices(p);
+        pts.forEach(pt => {
+          if (pt.x < minX) minX = pt.x;
+          if (pt.x > maxX) maxX = pt.x;
+          if (pt.y < minY) minY = pt.y;
+          if (pt.y > maxY) maxY = pt.y;
+        });
+      });
+
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const targetCenter = BOARD_SIZE / 2;
+      
+      const offsetX = targetCenter - centerX;
+      const offsetY = targetCenter - centerY;
+
+      const solution = {};
+      currentPieces.forEach(p => {
+        // Apply offset to center the puzzle
+        const newX = p.x() + offsetX;
+        const newY = p.y() + offsetY;
+        
+        solution[p.id()] = {
+          x: Math.round(newX),
+          y: Math.round(newY),
+          r: Math.round(p.rotation()) % 360,
+          sx: Math.round(p.scaleX())
+        };
+      });
+
+      const levelData = {
+        name: name,
+        sol: solution
+      };
+
+      fetch('/api/save-level', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(levelData)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('Level saved successfully!');
+          // Reload puzzles so the new level is in the list
+          return fetch('levels.json').then(r => r.json()).then(d => PUZZLES = d);
+        } else {
+          alert('Error saving level: ' + data.error);
+        }
+      })
+      .catch(err => {
+        console.error('Error:', err);
+        alert('Failed to save level. Is the server running?');
+      });
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
