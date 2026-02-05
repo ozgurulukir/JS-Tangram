@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Ozgur Ulukir -->
 <html lang="en">
 
 <head>
@@ -157,7 +159,7 @@
           </div>
 
           <button id="flip-btn"
-            class="btn-action w-full py-4 bg-stone-700 hover:bg-stone-600 rounded-xl flex items-center justify-center gap-3">  
+            class="btn-action w-full py-4 bg-stone-700 hover:bg-stone-600 rounded-xl flex items-center justify-center gap-3">
             <span class="text-xl">↔</span>
             <span class="text-[11px] uppercase font-bold tracking-wider">Flip Piece</span>
           </button>
@@ -165,7 +167,7 @@
           <hr class="border-stone-700">
 
           <button id="check-btn"
-            class="btn-action w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] flex items-center justify-center gap-3">
+            class="btn-action w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] flex items中心 justify中心 gap-3">
             <span class="text-xl">✓</span>
             <span class="text-[11px] uppercase font-bold tracking-wider">Validate Solution</span>
           </button>
@@ -182,8 +184,8 @@
   </div>
 
   <script>
-    /** 
-     * KONVA.JS TANGRAM EDITOR LOGIC 
+    /**
+     * KONVA.JS TANGRAM PUZZLE LOGIC
      */
 
     const BOARD_SIZE = 450;
@@ -192,7 +194,10 @@
     const UNIT = 36;
     const MAGNET = 20;
 
-    // Matrix Transformation Utility
+    /**
+     * MATRIX TRANSFORMATION UTILITY (Homogeneous Coordinates)
+     * Inspired by "Representing 2D Transformations as Matrices"
+     */
     const Mat33 = {
       identity: () => [1, 0, 0, 0, 1, 0, 0, 0, 1],
       multiply: (a, b) => {
@@ -217,23 +222,39 @@
       point: (m, p) => ({
         x: p.x * m[0] + p.y * m[3] + m[6],
         y: p.x * m[1] + p.y * m[4] + m[7]
-      })
+      }),
+      // Helper to generate a piece's transformation matrix
+      getTransformMatrix: (x, y, r, sx, offX, offY) => {
+        let m = Mat33.translate(-offX * UNIT, -offY * UNIT); // Pivot to origin
+        m = Mat33.multiply(m, Mat33.scale(sx, 1));
+        m = Mat33.multiply(m, Mat33.rotate(r));
+        m = Mat33.multiply(m, Mat33.translate(x, y));
+        return m;
+      }
     };
 
     const PIECE_DEFS = [
-      { id: 'T1', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#ef4444', off: [2, 1] },
-      { id: 'T2', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#f97316', off: [2, 1] },
-      { id: 'T3', type: 'poly', pts: [0, 0, 2, 0, 0, 2], color: '#22c55e', off: [0.67, 0.67] },
-      { id: 'T4', type: 'poly', pts: [0, 0, 2, 0, 1, 1], color: '#8b5cf6', off: [1, 0.5] },
-      { id: 'T5', type: 'poly', pts: [0, 0, 2, 0, 1, 1], color: '#3b82f6', off: [1, 0.5] },
-      { id: 'SQ', type: 'poly', pts: [1, 0, 2, 1, 1, 2, 0, 1], color: '#eab308', off: [1, 1] },
-      { id: 'PL', type: 'poly', pts: [0, 0, 2, 0, 3, 1, 1, 1], color: '#06b6d4', off: [1.5, 0.5] }
+      // Big Triangles (Area 4)
+      { id: 'T1', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#ef4444', off: [2, 1] }, // Red
+      { id: 'T2', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#f97316', off: [2, 1] }, // Orange
+      // Medium Triangle (Area 2)
+      { id: 'T3', type: 'poly', pts: [0, 0, 2, 0, 0, 2], color: '#22c55e', off: [0.67, 0.67] }, // Green
+      // Small Triangles (Area 1)
+      { id: 'T4', type: 'poly', pts: [0, 0, 2, 0, 1, 1], color: '#8b5cf6', off: [1, 0.5] }, // Purple
+      { id: 'T5', type: 'poly', pts: [0, 0, 2, 0, 1, 1], color: '#3b82f6', off: [1, 0.5] }, // Blue
+      // Square (Area 2)
+      { id: 'SQ', type: 'poly', pts: [1, 0, 2, 1, 1, 2, 0, 1], color: '#eab308', off: [1, 1] }, // Yellow
+      // Parallelogram (Area 2)
+      { id: 'PL', type: 'poly', pts: [0, 0, 2, 0, 3, 1, 1, 1], color: '#06b6d4', off: [1.5, 0.5] } // Cyan
     ];
 
     let PUZZLES = [];
-    let stage, mainLayer, currentPieces = [];
+
+    let stage, mainLayer, previewStage, previewLayer, currentPieces = [];
     let selectedPiece = null;
     let puzzleIndex = 0;
+    let timerInterval;
+    let secondsElapsed = 0;
 
     function getPieceVertices(shape) {
       const def = PIECE_DEFS.find(d => d.id === shape.id());
@@ -250,6 +271,7 @@
     }
 
     function getInitialPosition(index) {
+      // Scatter pieces around the board
       const cols = 4;
       return {
         x: (index % cols) * 90 + 50,
@@ -281,19 +303,33 @@
         mainLayer.add(new Konva.Line({ points: [0, i, BOARD_SIZE, i], stroke: '#e5e7eb', strokeWidth: 1 }));
       }
 
+      // Preview Stage
+      previewStage = new Konva.Stage({
+        container: 'preview-container',
+        width: 256,
+        height: 256
+      });
+      previewLayer = new Konva.Layer();
+      previewStage.add(previewLayer);
+
       setupPieces();
       
-      // Load puzzles to edit existing ones
+      // Load puzzles from JSON
       fetch('levels.json')
         .then(response => response.json())
         .then(data => {
           PUZZLES = data;
-          if (PUZZLES.length > 0) {
-            loadPuzzle(0);
-          }
+          
+          // Load saved progress
+          const savedIndex = localStorage.getItem('tangram_puzzle_index');
+          puzzleIndex = savedIndex ? parseInt(savedIndex, 10) : 0;
+          if (puzzleIndex >= PUZZLES.length) puzzleIndex = 0;
+
+          loadPuzzle(puzzleIndex);
         })
         .catch(err => {
           console.error('Error loading puzzles:', err);
+          alert('Failed to load levels.json. Please ensure you are running the server.');
         });
 
       setupEvents();
@@ -433,26 +469,67 @@
       mainLayer.draw();
     }
 
+    function startTimer() {
+      clearInterval(timerInterval);
+      secondsElapsed = 0;
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        secondsElapsed++;
+        updateTimerDisplay();
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    function updateTimerDisplay() {
+      const minutes = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+      const seconds = (secondsElapsed % 60).toString().padStart(2, '0');
+      document.getElementById('timer').textContent = `${minutes}:${seconds}`;
+    }
+
     function loadPuzzle(idx) {
       if (PUZZLES.length === 0) return;
       puzzleIndex = (idx + PUZZLES.length) % PUZZLES.length;
-      
-      const p = PUZZLES[puzzleIndex];
-      document.getElementById('level-name-input').value = p.name;
+      localStorage.setItem('tangram_puzzle_index', puzzleIndex);
 
-      // Position pieces according to solution
-      currentPieces.forEach(piece => {
-          const s = p.sol[piece.id()];
-          if (s) {
-              piece.to({
-                  x: s.x,
-                  y: s.y,
-                  rotation: s.r,
-                  scaleX: s.sx,
-                  duration: 0.5
-              });
-          }
+      const p = PUZZLES[puzzleIndex];
+      document.getElementById('puzzle-name').textContent = p.name;
+
+      startTimer();
+
+      previewLayer.destroyChildren();
+      const group = new Konva.Group();
+
+      Object.entries(p.sol).forEach(([id, s]) => {
+        const def = PIECE_DEFS.find(d => d.id === id);
+        // Use s directly as it now comes from JSON without the "config" wrapper
+        // unless we wrapped it in JSON (which we didn't in my previous Write)
+        const config = s; 
+        group.add(new Konva.Line({
+          points: def.pts.map(p => p * UNIT),
+          fill: '#444',
+          closed: true,
+          x: config.x,
+          y: config.y,
+          rotation: config.r,
+          scaleX: config.sx,
+          offset: { x: def.off[0] * UNIT, y: def.off[1] * UNIT }
+        }));
       });
+
+      const box = group.getClientRect();
+      const scale = 220 / Math.max(box.width, box.height);
+      group.scale({ x: scale, y: scale });
+      const newBox = group.getClientRect();
+      group.position({
+        x: (256 - newBox.width) / 2 - newBox.x + group.x(),
+        y: (256 - newBox.height) / 2 - newBox.y + group.y()
+      });
+
+      previewLayer.add(group);
+      previewLayer.draw();
     }
 
     function setupEvents() {
@@ -476,17 +553,15 @@
 
       document.getElementById('prev-btn').onclick = () => loadPuzzle(puzzleIndex - 1);
       document.getElementById('next-btn').onclick = () => loadPuzzle(puzzleIndex + 1);
-
-      document.getElementById('reset-btn').onclick = () => {
-        currentPieces.forEach((p, i) => {
-          p.rotation(0);
-          p.scaleX(1);
-          p.position(getInitialPosition(i));
-        });
-        mainLayer.draw();
+      document.getElementById('next-puzzle-btn').onclick = () => {
+        document.getElementById('win-overlay').classList.remove('active');
+        loadPuzzle(puzzleIndex + 1);
+        reset();
       };
 
-      document.getElementById('save-btn').onclick = saveLevel;
+      document.getElementById('reset-btn').onclick = reset;
+      document.getElementById('solution-btn').onclick = reveal;
+      document.getElementById('check-btn').onclick = checkSolution;
 
       document.addEventListener('keydown', (e) => {
         if (!selectedPiece) return;
@@ -501,77 +576,161 @@
       });
     }
 
-    function saveLevel() {
-      const name = document.getElementById('level-name-input').value.trim();
-      if (!name) {
-        alert('Please enter a level name');
+    function reset() {
+      currentPieces.forEach((p, i) => {
+        p.rotation(0);
+        p.scaleX(1);
+        p.position(getInitialPosition(i));
+      });
+      mainLayer.draw();
+    }
+
+    function reveal() {
+      const sol = PUZZLES[puzzleIndex].sol;
+      currentPieces.forEach(p => {
+        const s = sol[p.id()];
+        const config = s;
+        p.to({
+          x: config.x, y: config.y, rotation: config.r, scaleX: config.sx,
+          duration: 0.8, easing: Konva.Easings.EaseInOut
+        });
+      });
+    }
+
+    function checkSolution() {
+      const sol = PUZZLES[puzzleIndex].sol;
+
+      // We will perform a pixel-based comparison using off-screen canvases.
+      // This approach is robust against:
+      // 1. Piece swapping (different pieces forming same shape)
+      // 2. Position shifting (we will align centers)
+      // 3. Floating point inaccuracies
+
+      const compareSize = 300;
+      const compareCenter = compareSize / 2;
+
+      // --- Helper: Draw a set of pieces to a canvas ---
+      function drawStateToCanvas(pieceStates, isSolutionData) {
+        const canvas = document.createElement('canvas');
+        canvas.width = compareSize;
+        canvas.height = compareSize;
+        const ctx = canvas.getContext('2d');
+        
+        // 1. Calculate Bounding Box
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        
+        const polygons = [];
+
+        Object.keys(pieceStates).forEach(key => {
+          let id, config;
+          if (isSolutionData) {
+            id = key;
+            config = pieceStates[key];
+          } else {
+            // pieceStates is an array of Konva Nodes
+            const node = pieceStates[key];
+            id = node.id();
+            config = {
+              x: node.x(),
+              y: node.y(),
+              r: node.rotation(),
+              sx: node.scaleX()
+            };
+          }
+
+          const def = PIECE_DEFS.find(d => d.id === id);
+          if (!def) return;
+
+          // Calculate vertices manually using Mat33
+          const matrix = Mat33.getTransformMatrix(
+            config.x, config.y, config.r, config.sx, 
+            def.off[0], def.off[1]
+          );
+
+          const poly = [];
+          for(let i=0; i<def.pts.length; i+=2) {
+            const pt = Mat33.point(matrix, { x: def.pts[i] * UNIT, y: def.pts[i+1] * UNIT });
+            poly.push(pt);
+            if (pt.x < minX) minX = pt.x;
+            if (pt.x > maxX) maxX = pt.x;
+            if (pt.y < minY) minY = pt.y;
+            if (pt.y > maxY) maxY = pt.y;
+          }
+          polygons.push(poly);
+        });
+
+        const width = maxX - minX;
+        const height = maxY - minY;
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+
+        // 2. Draw centered
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        polygons.forEach(poly => {
+          if (poly.length === 0) return;
+          // Translate to canvas center
+          const startX = poly[0].x - centerX + compareCenter;
+          const startY = poly[0].y - centerY + compareCenter;
+          ctx.moveTo(startX, startY);
+          for(let i=1; i<poly.length; i++) {
+            ctx.lineTo(poly[i].x - centerX + compareCenter, poly[i].y - centerY + compareCenter);
+          }
+          ctx.closePath();
+        });
+        ctx.fill();
+
+        return { canvas, ctx, width, height };
+      }
+
+      const target = drawStateToCanvas(sol, true);
+      const current = drawStateToCanvas(currentPieces, false);
+
+      // --- Comparison Logic ---
+
+      // 1. Aspect Ratio / Size Check (Tolerance ~10%)
+      const sizeTolerance = 0.15; // Slightly loose to allow for rotation rounding errors
+      const wDiff = Math.abs(target.width - current.width);
+      const hDiff = Math.abs(target.height - current.height);
+      
+      if (wDiff > target.width * sizeTolerance || hDiff > target.height * sizeTolerance) {
+        alert("The overall shape dimensions don't match. Check your edges!");
         return;
       }
 
-      // 1. Calculate Bounding Box to Center Logic
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      // 2. Pixel Difference Check
+      const imgData1 = target.ctx.getImageData(0, 0, compareSize, compareSize).data;
+      const imgData2 = current.ctx.getImageData(0, 0, compareSize, compareSize).data;
       
-      // First pass: find bounds
-      currentPieces.forEach(p => {
-        const pts = getPieceVertices(p);
-        pts.forEach(pt => {
-          if (pt.x < minX) minX = pt.x;
-          if (pt.x > maxX) maxX = pt.x;
-          if (pt.y < minY) minY = pt.y;
-          if (pt.y > maxY) maxY = pt.y;
-        });
-      });
+      let diffPixels = 0;
+      let totalPixels = 0;
 
-      const centerX = (minX + maxX) / 2;
-      const centerY = (minY + maxY) / 2;
-      const targetCenter = BOARD_SIZE / 2;
-      
-      const offsetX = targetCenter - centerX;
-      const offsetY = targetCenter - centerY;
-
-      const solution = {};
-      currentPieces.forEach(p => {
-        // Apply offset to center the puzzle
-        const newX = p.x() + offsetX;
-        const newY = p.y() + offsetY;
+      for(let i = 3; i < imgData1.length; i += 4) {
+        const alpha1 = imgData1[i] > 128 ? 1 : 0; // Threshold alpha
+        const alpha2 = imgData2[i] > 128 ? 1 : 0;
         
-        solution[p.id()] = {
-          x: Math.round(newX),
-          y: Math.round(newY),
-          r: Math.round(p.rotation()) % 360,
-          sx: Math.round(p.scaleX())
-        };
-      });
-
-      const levelData = {
-        name: name,
-        sol: solution
-      };
-
-      fetch('/api/save-level', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(levelData)
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          alert('Level saved successfully!');
-          // Reload puzzles so the new level is in the list
-          return fetch('levels.json').then(r => r.json()).then(d => PUZZLES = d);
-        } else {
-          alert('Error saving level: ' + data.error);
+        if (alpha1 || alpha2) {
+            totalPixels++; // Count pixels that are part of either shape
+            if (alpha1 !== alpha2) {
+                diffPixels++;
+            }
         }
-      })
-      .catch(err => {
-        console.error('Error:', err);
-        alert('Failed to save level. Is the server running?');
-      });
+      }
+
+      // Allow small error (e.g., 5% mismatch) for anti-aliasing differences
+      const errorRate = diffPixels / totalPixels;
+      
+      if (errorRate < 0.05) {
+        stopTimer();
+        document.getElementById('win-overlay').classList.add('active');
+      } else {
+        console.log(`Mismatch Rate: ${(errorRate*100).toFixed(2)}%`);
+        alert("Not quite! The silhouette doesn't match perfectly.");
+      }
     }
 
     window.onload = init;
   </script>
 </body>
+
 </html>
