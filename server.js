@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = 8080;
+const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 const MIME_TYPES = {
   '.html': 'text/html',
   '.json': 'application/json'
@@ -16,10 +17,22 @@ const server = http.createServer((req, res) => {
   // Handle API requests
   if (req.url === '/api/save-level' && req.method === 'POST') {
     let body = '';
+    let bodySize = 0;
+    let tooLarge = false;
     req.on('data', chunk => {
+      if (tooLarge) return;
+      bodySize += chunk.length;
+      if (bodySize > MAX_BODY_SIZE) {
+        tooLarge = true;
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Payload too large' }));
+        req.destroy();
+        return;
+      }
       body += chunk.toString();
     });
     req.on('end', () => {
+      if (tooLarge) return;
       try {
         const newLevel = JSON.parse(body);
         const levelsPath = path.join(__dirname, 'levels.json');
