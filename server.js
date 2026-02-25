@@ -7,14 +7,7 @@ const path = require('path');
 const PORT = 8080;
 const MIME_TYPES = {
   '.html': 'text/html',
-  '.js': 'text/javascript',
-  '.css': 'text/css',
-  '.json': 'application/json',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon'
+  '.json': 'application/json'
 };
 
 const server = http.createServer((req, res) => {
