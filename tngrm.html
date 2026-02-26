@@ -6,20 +6,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Zen Tangram - Master the Art of Shapes</title>
+  <title>Zen Tangram - Şekillerin Sanatında Ustalaşın</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;900&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://unpkg.com/konva@9/konva.min.js"></script>
   <style>
     body {
-      font-family: 'Outfit', sans-serif;
+      font-family: 'Nunito', 'Outfit', sans-serif;
     }
 
     #game-container {
       touch-action: none;
-      background-color: #f3f4f6;
+      background-color: #fcfaf8;
     }
 
     .btn-action {
@@ -40,49 +40,60 @@
 
     .win-overlay.active {
       display: flex;
-      animation: fadeIn 0.5s ease-out forwards;
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-      }
-
-      to {
-        opacity: 1;
-      }
+      opacity: 1;
+      pointer-events: auto;
     }
   </style>
 </head>
 
-<body class="min-h-screen bg-stone-100 flex items-center justify-center p-4">
+<body class="min-h-screen bg-[#fcfaf8] flex items-center justify-center p-4">
 
   <!-- Win Overlay -->
   <div id="win-overlay"
-    class="win-overlay fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm items-center justify-center">
-    <div class="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-sm mx-4 transform transition-all scale-110">
-      <div class="text-6xl mb-4">✨</div>
-      <h2 class="text-3xl font-bold text-stone-800 mb-2">Masterpiece!</h2>
-      <p class="text-stone-600 mb-6">You've perfectly arranged the pieces.</p>
-      <button id="next-puzzle-btn"
-        class="w-full py-3 bg-stone-800 text-white font-semibold rounded-xl hover:bg-stone-700 transition-colors">Continue
-        to Next</button>
+    class="win-overlay group fixed inset-0 z-50 bg-stone-900/80 backdrop-blur-xl items-center justify-center opacity-0 pointer-events-none transition-all duration-700">
+    <div class="bg-white p-12 rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] text-center max-w-sm mx-4 transform transition-all scale-90 duration-700 group-[.active]:scale-100">
+      <div class="text-7xl mb-6 animate-bounce">✨</div>
+      <h2 class="text-4xl font-black text-stone-800 mb-2 tracking-tight">Harika!</h2>
+      <p class="text-stone-500 font-medium mb-8">Parçaları <span id="win-time" class="text-stone-800 font-bold">00:00</span> içinde mükemmel bir şekilde yerleştirdiniz.</p>
+      <div class="space-y-3">
+        <button id="next-puzzle-btn"
+          class="w-full py-4 bg-stone-900 text-white font-bold rounded-2xl hover:bg-stone-800 transition-all shadow-lg hover:shadow-stone-900/20 active:scale-95">Sıradaki Bölüm</button>
+        <button onclick="document.getElementById('win-overlay').classList.remove('active'); openLevelModal();"
+          class="w-full py-4 bg-stone-100 text-stone-600 font-bold rounded-2xl hover:bg-stone-200 transition-all active:scale-95">Bölüm Haritası</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level Modal -->
+  <div id="level-modal"
+    class="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm hidden items-center justify-center">
+    <div class="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-black text-stone-800 tracking-tight">Bölüm <span class="font-light">Seçin</span></h2>
+        <button id="close-modal-btn" class="p-2 hover:bg-stone-100 rounded-full transition-colors text-2xl">✕</button>
+      </div>
+      <div id="level-list" class="grid grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto pr-2 custom-scrollbar">
+        <!-- Levels will be injected here -->
+      </div>
     </div>
   </div>
 
   <div
-    class="bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-6 md:p-10 max-w-5xl w-full border border-stone-200">
-    <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+    class="bg-white/80 backdrop-blur-md rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)] p-6 md:p-12 max-w-5xl w-full border border-white">
+    <header class="flex flex-col md:flex-row justify-between items-start mb-12 gap-6">
       <div>
         <h1 class="text-4xl font-black text-stone-800 tracking-tight">ZEN <span class="font-light">TANGRAM</span></h1>
-        <p class="text-stone-400 font-medium">Drag, rotate, and arrange the silhouette.</p>
+        <p class="text-stone-400 font-medium">Sürükleyin, döndürün ve silueti oluşturun.</p>
       </div>
       <div class="flex flex-col items-end gap-2">
-        <a href="editor.html" class="text-stone-500 hover:text-stone-800 underline text-sm">Level Editor</a>
+        <a href="editor.html" class="text-stone-500 hover:text-stone-800 underline text-sm">Bölüm Düzenleyici</a>
         <div class="flex items-center gap-4 bg-stone-50 p-2 rounded-2xl border border-stone-100">
           <button id="prev-btn"
             class="p-3 bg-white text-stone-600 hover:text-stone-900 rounded-xl shadow-sm border border-stone-200 transition-all hover:bg-stone-50">←</button>
-          <span id="puzzle-name" class="min-w-32 text-center text-stone-700 font-bold text-lg">Cat</span>
+          <button id="open-levels-btn" class="min-w-32 px-4 py-2 text-center text-stone-700 font-bold text-lg hover:bg-white rounded-lg transition-all">
+            <span id="puzzle-name">Cat</span>
+            <span class="block text-[10px] uppercase tracking-tighter text-stone-400 font-medium">Bölümlere Göz At</span>
+          </button>
           <button id="next-btn"
             class="p-3 bg-white text-stone-600 hover:text-stone-900 rounded-xl shadow-sm border border-stone-200 transition-all hover:bg-stone-50">→</button>
         </div>
@@ -102,29 +113,29 @@
             <div id="preview-container" class="w-full h-full"></div>
             <div
               class="absolute bottom-3 left-3 px-3 py-1 bg-white/10 backdrop-blur text-[10px] text-stone-400 rounded-full font-bold uppercase tracking-widest">
-              Target Silhouette</div>
+              Hedef Siluet</div>
           </div>
         </div>
 
-        <div class="bg-stone-50 p-6 rounded-2xl border border-stone-100 space-y-4">
+        <div class="bg-white/50 p-6 rounded-[2rem] border border-stone-100 space-y-4 shadow-sm">
           <h3 class="text-stone-800 font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Controls
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Kontroller
           </h3>
           <ul class="text-stone-500 text-sm space-y-3 font-medium">
             <li class="flex items-center gap-3">
               <span
                 class="w-8 h-8 flex items-center justify-center bg-white border border-stone-200 rounded-lg text-stone-400">🖱️</span>
-              Drag to move
+              Taşımak için sürükle
             </li>
             <li class="flex items-center gap-3">
               <span
                 class="w-8 h-8 flex items-center justify-center bg-white border border-stone-200 rounded-lg text-stone-400">2×</span>
-              Double click to rotate
+              Döndürmek için çift tıkla
             </li>
             <li class="flex items-center gap-3">
               <span
                 class="w-8 h-8 flex items-center justify-center bg-white border border-stone-200 rounded-lg text-stone-400">⌨️</span>
-              WASD or Arrows for move
+              Oklar veya WASD ile taşı
             </li>
           </ul>
         </div>
@@ -133,50 +144,57 @@
       <!-- Center Panel: Board -->
       <div class="lg:col-span-6 flex flex-col items-center gap-8 order-1 lg:order-2">
         <div class="relative w-full aspect-square max-w-[480px]">
-          <div class="absolute -inset-2 bg-stone-200 rounded-3xl -rotate-1"></div>
+          <div class="absolute -inset-4 bg-stone-200/40 rounded-[3rem] -rotate-2 scale-105"></div>
           <div id="game-container"
-            class="relative bg-stone-50 rounded-2xl shadow-inner border-[12px] border-stone-800 overflow-hidden w-full aspect-square">
+            class="relative bg-white rounded-[2.5rem] shadow-inner border-[12px] border-stone-900 overflow-hidden w-full aspect-square">
           </div>
         </div>
       </div>
 
       <!-- Right Panel: Piece Controls -->
-      <div class="lg:col-span-3 flex flex-col gap-4 order-3">
-        <div class="bg-stone-800 text-white p-6 rounded-2xl shadow-xl space-y-6">
-          <h3 class="text-stone-400 font-bold text-xs uppercase tracking-widest">Piece Actions</h3>
+      <div class="lg:col-span-3 flex flex-col gap-6 order-3">
+        <div class="bg-stone-900 text-white p-8 rounded-[2.5rem] shadow-2xl space-y-8">
+          <h3 class="text-stone-400 font-bold text-xs uppercase tracking-widest">Parça İşlemleri</h3>
 
           <div class="grid grid-cols-2 gap-3">
             <button id="rotate-left-btn"
               class="btn-action p-4 bg-stone-700 hover:bg-stone-600 rounded-xl flex flex-col items-center gap-2">
               <span class="text-xl">↺</span>
-              <span class="text-[10px] uppercase font-bold">Left</span>
+              <span class="text-[10px] uppercase font-bold">Sol</span>
             </button>
             <button id="rotate-right-btn"
               class="btn-action p-4 bg-stone-700 hover:bg-stone-600 rounded-xl flex flex-col items-center gap-2">
               <span class="text-xl">↻</span>
-              <span class="text-[10px] uppercase font-bold">Right</span>
+              <span class="text-[10px] uppercase font-bold">Sağ</span>
             </button>
           </div>
 
           <button id="flip-btn"
             class="btn-action w-full py-4 bg-stone-700 hover:bg-stone-600 rounded-xl flex items-center justify-center gap-3">
             <span class="text-xl">↔</span>
-            <span class="text-[11px] uppercase font-bold tracking-wider">Flip Piece</span>
+            <span class="text-[11px] uppercase font-bold tracking-wider">Parçayı Çevir</span>
           </button>
 
           <hr class="border-stone-700">
 
-          <button id="check-btn"
-            class="btn-action w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] flex items中心 justify中心 gap-3">
-            <span class="text-xl">✓</span>
-            <span class="text-[11px] uppercase font-bold tracking-wider">Validate Solution</span>
-          </button>
+          <div class="flex gap-2">
+            <button id="check-btn"
+              class="btn-action flex-[2] py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] flex items-center justify-center gap-3">
+              <span class="text-xl">✓</span>
+              <span class="text-[11px] uppercase font-bold tracking-wider">Doğrula</span>
+            </button>
+            <button id="hint-btn"
+              class="btn-action flex-1 py-4 bg-amber-500 hover:bg-amber-400 text-white rounded-xl shadow-[0_4px_15px_rgba(245,158,11,0.3)] flex items-center justify-center gap-2">
+              <span class="text-lg">💡</span>
+              <span class="text-[10px] uppercase font-bold tracking-wider">İpucu</span>
+            </button>
+          </div>
 
           <div class="flex gap-2">
             <button id="reset-btn"
-              class="btn-action flex-1 py-3 bg-stone-900 hover:bg-stone-800 text-stone-400 text-[10px] uppercase font-bold rounded-xl border border-stone-700">Reset</button>
+              class="btn-action flex-1 py-3 bg-stone-900 hover:bg-stone-800 text-stone-400 text-[10px] uppercase font-bold rounded-xl border border-stone-700">Sıfırla</button>
             <button id="solution-btn"
-              class="btn-action flex-1 py-3 bg-stone-900 hover:bg-stone-800 text-stone-400 text-[10px] uppercase font-bold rounded-xl border border-stone-700">Reveal</button>
+              class="btn-action flex-1 py-3 bg-stone-900 hover:bg-stone-800 text-stone-400 text-[10px] uppercase font-bold rounded-xl border border-stone-700">Göster</button>
           </div>
         </div>
       </div>
@@ -235,17 +253,17 @@
 
     const PIECE_DEFS = [
       // Big Triangles (Area 4)
-      { id: 'T1', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#ef4444', off: [2, 1] }, // Red
-      { id: 'T2', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#f97316', off: [2, 1] }, // Orange
+      { id: 'T1', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#fca5a5', off: [2, 1] }, // Pastel Red/Pink
+      { id: 'T2', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#fdba74', off: [2, 1] }, // Pastel Orange
       // Medium Triangle (Area 2)
-      { id: 'T3', type: 'poly', pts: [0, 0, 2, 0, 0, 2], color: '#22c55e', off: [0.67, 0.67] }, // Green
+      { id: 'T3', type: 'poly', pts: [0, 0, 2, 0, 0, 2], color: '#86efac', off: [0.67, 0.67] }, // Pastel Green
       // Small Triangles (Area 1)
-      { id: 'T4', type: 'poly', pts: [0, 0, 2, 0, 1, 1], color: '#8b5cf6', off: [1, 0.5] }, // Purple
-      { id: 'T5', type: 'poly', pts: [0, 0, 2, 0, 1, 1], color: '#3b82f6', off: [1, 0.5] }, // Blue
+      { id: 'T4', type: 'poly', pts: [0, 0, 2, 0, 1, 1], color: '#c4b5fd', off: [1, 0.5] }, // Pastel Purple
+      { id: 'T5', type: 'poly', pts: [0, 0, 2, 0, 1, 1], color: '#93c5fd', off: [1, 0.5] }, // Pastel Blue
       // Square (Area 2)
-      { id: 'SQ', type: 'poly', pts: [1, 0, 2, 1, 1, 2, 0, 1], color: '#eab308', off: [1, 1] }, // Yellow
+      { id: 'SQ', type: 'poly', pts: [1, 0, 2, 1, 1, 2, 0, 1], color: '#fde047', off: [1, 1] }, // Pastel Yellow
       // Parallelogram (Area 2)
-      { id: 'PL', type: 'poly', pts: [0, 0, 2, 0, 3, 1, 1, 1], color: '#06b6d4', off: [1.5, 0.5] } // Cyan
+      { id: 'PL', type: 'poly', pts: [0, 0, 2, 0, 3, 1, 1, 1], color: '#67e8f9', off: [1.5, 0.5] } // Pastel Cyan
     ];
 
     let PUZZLES = [];
@@ -355,8 +373,8 @@
         const shape = new Konva.Line({
           points: def.pts.map(p => p * UNIT),
           fill: def.color,
-          stroke: '#444',
-          strokeWidth: 2,
+          stroke: '#666',
+          strokeWidth: 1.5,
           closed: true,
           draggable: true,
           id: def.id,
@@ -376,7 +394,63 @@
           shape.shadowOpacity(0.3).shadowOffset({ x: 10, y: 10 });
         });
 
-        shape.on('dragend', () => handleSnap(shape));
+        shape.on('dragmove', () => {
+          let nearby = false;
+          const thisPts = getPieceVertices(shape);
+
+          for (let p of currentPieces) {
+            if (p === shape) continue;
+            const otherPts = getPieceVertices(p);
+            for (let tp of thisPts) {
+              for (let op of otherPts) {
+                const dx = op.x - tp.x;
+                const dy = op.y - tp.y;
+                if (Math.sqrt(dx * dx + dy * dy) < MAGNET) {
+                  nearby = true;
+                  break;
+                }
+              }
+              if (nearby) break;
+            }
+            if (nearby) break;
+          }
+
+          if (nearby) {
+            shape.stroke('#ffffff');
+            shape.strokeWidth(3);
+          } else {
+            shape.stroke('#000');
+            shape.strokeWidth(3);
+          }
+        });
+
+        shape.on('dragend', () => {
+          handleSnap(shape);
+          shape.stroke('#000');
+          shape.strokeWidth(3);
+        });
+
+        shape.on('mouseenter', () => {
+          document.body.style.cursor = 'grab';
+          if (shape === selectedPiece) return;
+          shape.to({
+            scaleX: shape.scaleX() * 1.05,
+            scaleY: 1.05,
+            duration: 0.1
+          });
+          mainLayer.draw();
+        });
+
+        shape.on('mouseleave', () => {
+          document.body.style.cursor = 'default';
+          if (shape === selectedPiece) return;
+          shape.to({
+            scaleX: shape.scaleX() > 0 ? 1 : -1,
+            scaleY: 1,
+            duration: 0.1
+          });
+          mainLayer.draw();
+        });
 
         shape.on('click tap', (e) => {
           e.cancelBubble = true;
@@ -417,9 +491,21 @@
       });
 
       if (best.dist < MAGNET) {
-        shape.position({
+        shape.to({
           x: shape.x() + best.dx,
-          y: shape.y() + best.dy
+          y: shape.y() + best.dy,
+          duration: 0.1,
+          easing: Konva.Easings.EaseInOut,
+          onFinish: () => {
+            // Add a little pop effect
+            shape.to({
+              strokeWidth: 5,
+              duration: 0.05,
+              onFinish: () => {
+                shape.to({ strokeWidth: 3, duration: 0.1 });
+              }
+            });
+          }
         });
         snapped = true;
       }
@@ -438,8 +524,8 @@
     function select(piece) {
       // Deselect previous
       if (selectedPiece && selectedPiece !== piece) {
-        selectedPiece.stroke('#444');
-        selectedPiece.strokeWidth(2);
+        selectedPiece.stroke('#666');
+        selectedPiece.strokeWidth(1.5);
         selectedPiece.shadowBlur(5);
         selectedPiece.shadowColor('rgba(0,0,0,0.1)');
         selectedPiece.shadowOffset({ x: 3, y: 3 });
@@ -448,8 +534,8 @@
       if (!piece) {
         if (selectedPiece) {
           // If we are just deselecting the current one (and piece is null)
-          selectedPiece.stroke('#444');
-          selectedPiece.strokeWidth(2);
+          selectedPiece.stroke('#666');
+          selectedPiece.strokeWidth(1.5);
           selectedPiece.shadowBlur(5);
           selectedPiece.shadowColor('rgba(0,0,0,0.1)');
           selectedPiece.shadowOffset({ x: 3, y: 3 });
@@ -532,6 +618,23 @@
 
       previewLayer.add(group);
       previewLayer.draw();
+
+      // Shake the first piece to guide the player
+      setTimeout(() => {
+        const firstPiece = currentPieces[0];
+        if (firstPiece) {
+          const startX = firstPiece.x();
+          const anim = new Konva.Animation((frame) => {
+            firstPiece.x(startX + Math.sin(frame.time / 50) * 5);
+          }, mainLayer);
+          anim.start();
+          setTimeout(() => {
+            anim.stop();
+            firstPiece.x(startX);
+            mainLayer.draw();
+          }, 1000);
+        }
+      }, 500);
     }
 
     function setupEvents() {
@@ -564,6 +667,10 @@
       document.getElementById('reset-btn').onclick = reset;
       document.getElementById('solution-btn').onclick = reveal;
       document.getElementById('check-btn').onclick = checkSolution;
+      document.getElementById('hint-btn').onclick = showHint;
+
+      document.getElementById('open-levels-btn').onclick = openLevelModal;
+      document.getElementById('close-modal-btn').onclick = closeLevelModal;
 
       document.addEventListener('keydown', (e) => {
         if (!selectedPiece) return;
@@ -597,6 +704,36 @@
           duration: 0.8, easing: Konva.Easings.EaseInOut
         });
       });
+    }
+
+    function showHint() {
+      const sol = PUZZLES[puzzleIndex].sol;
+      // Find a piece that is not in its correct position
+      const misplaced = currentPieces.find(p => {
+        const s = sol[p.id()];
+        const dx = Math.abs(p.x() - s.x);
+        const dy = Math.abs(p.y() - s.y);
+        const dr = Math.abs((p.rotation() % 360) - (s.r % 360));
+        const dsx = Math.abs(p.scaleX() - s.sx);
+        return dx > 5 || dy > 5 || dr > 5 || dsx > 0.1;
+      });
+
+      if (misplaced) {
+        const s = sol[misplaced.id()];
+        misplaced.to({
+          x: s.x, y: s.y, rotation: s.r, scaleX: s.sx,
+          duration: 0.6, easing: Konva.Easings.EaseInOut,
+          onFinish: () => {
+            misplaced.stroke('#f59e0b');
+            misplaced.strokeWidth(5);
+            setTimeout(() => {
+              misplaced.stroke('#000');
+              misplaced.strokeWidth(3);
+              mainLayer.draw();
+            }, 1000);
+          }
+        });
+      }
     }
 
     function checkSolution() {
@@ -724,11 +861,76 @@
       
       if (errorRate < 0.05) {
         stopTimer();
+        saveProgress(puzzleIndex, secondsElapsed);
+
+        const minutes = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+        const seconds = (secondsElapsed % 60).toString().padStart(2, '0');
+        document.getElementById('win-time').textContent = `${minutes}:${seconds}`;
+
         document.getElementById('win-overlay').classList.add('active');
       } else {
         console.log(`Mismatch Rate: ${(errorRate*100).toFixed(2)}%`);
         alert("Not quite! The silhouette doesn't match perfectly.");
       }
+    }
+
+    function openLevelModal() {
+      const modal = document.getElementById('level-modal');
+      const list = document.getElementById('level-list');
+      list.innerHTML = '';
+
+      const progress = JSON.parse(localStorage.getItem('tangram_progress') || '{}');
+
+      PUZZLES.forEach((p, i) => {
+        const pData = progress[i];
+        const btn = document.createElement('button');
+        const isCurrent = i === puzzleIndex;
+        const isCompleted = pData && pData.completed;
+
+        btn.className = `group relative p-6 rounded-3xl border-2 text-left transition-all duration-300 ${isCurrent ? 'border-amber-400 bg-amber-50 shadow-lg scale-[1.02] z-10' : 'border-stone-100 hover:border-stone-200 hover:bg-stone-50'}`;
+
+        const timeStr = pData ? `${Math.floor(pData.bestTime / 60).toString().padStart(2, '0')}:${(pData.bestTime % 60).toString().padStart(2, '0')}` : '--:--';
+
+        btn.innerHTML = `
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-[10px] text-stone-400 font-black uppercase tracking-widest">Bölüm ${i + 1}</span>
+            ${isCompleted ? '<span class="text-emerald-500 text-sm">✓</span>' : ''}
+          </div>
+          <div class="text-xl font-black text-stone-800 mb-4">${p.name}</div>
+          <div class="flex items-center gap-2 mt-auto">
+            <span class="text-[10px] text-stone-400 font-bold uppercase tracking-widest">En İyi Süre:</span>
+            <span class="text-xs font-mono font-bold text-stone-600">${timeStr}</span>
+          </div>
+        `;
+        btn.onclick = () => {
+          loadPuzzle(i);
+          reset();
+          closeLevelModal();
+        };
+        list.appendChild(btn);
+      });
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeLevelModal() {
+      const modal = document.getElementById('level-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function saveProgress(idx, time) {
+      const progress = JSON.parse(localStorage.getItem('tangram_progress') || '{}');
+      if (!progress[idx]) {
+        progress[idx] = { completed: true, bestTime: time };
+      } else {
+        progress[idx].completed = true;
+        if (time < progress[idx].bestTime) {
+          progress[idx].bestTime = time;
+        }
+      }
+      localStorage.setItem('tangram_progress', JSON.stringify(progress));
     }
 
     window.onload = init;
