@@ -383,9 +383,24 @@
             select(shape);
           }
         });
-        shape.on('dblclick dbltap', () => {
+        
+        // Handle double-click for desktop
+        shape.on('dblclick', () => {
           shape.rotation(shape.rotation() + ROTATION_STEP);
           mainLayer.draw();
+        });
+        
+        // Handle double-tap for mobile (prevent duplicate with dblclick)
+        let lastTapTime = 0;
+        shape.on('tap', (e) => {
+          const now = Date.now();
+          if (now - lastTapTime < 300 && now - lastTapTime > 50) {
+            // Double tap detected (between 50ms and 300ms)
+            shape.rotation(shape.rotation() + ROTATION_STEP);
+            mainLayer.draw();
+            e.cancelBubble = true;
+          }
+          lastTapTime = now;
         });
 
         mainLayer.add(shape);
