@@ -130,15 +130,48 @@
   </div>
 
   <script>
-    /** 
-     * KONVA.JS TANGRAM EDITOR LOGIC 
+    /**
+     * KONVA.JS TANGRAM EDITOR LOGIC
      */
 
-    const BOARD_SIZE = 450;
-    const SNAP_COORD = 15;
-    const ROTATION_STEP = 45;
-    const UNIT = 36;
-    const MAGNET = 20;
+    /**
+     * GAME CONFIGURATION
+     * Centralized configuration for easy tuning and maintenance
+     */
+    const CONFIG = {
+      BOARD_SIZE: 450,
+      SNAP_COORD: 15,
+      ROTATION_STEP: 45,
+      UNIT: 36,
+      MAGNET: 20,
+      KEYBOARD_DIST_NORMAL: 5,
+      KEYBOARD_DIST_SHIFT: 1,
+      FETCH_TIMEOUT: 10000,
+      NOTIFICATION_DURATION: 5000,
+      DEBUG: false // Set to true for development logging
+    };
+
+    // Logger utility - suppresses logs in production
+    const logger = {
+      log: (...args) => {
+        if (CONFIG.DEBUG) {
+          console.log(...args);
+        }
+      },
+      error: (...args) => {
+        console.error(...args);
+      },
+      warn: (...args) => {
+        console.warn(...args);
+      }
+    };
+
+    // Aliases for backward compatibility
+    const BOARD_SIZE = CONFIG.BOARD_SIZE;
+    const SNAP_COORD = CONFIG.SNAP_COORD;
+    const ROTATION_STEP = CONFIG.ROTATION_STEP;
+    const UNIT = CONFIG.UNIT;
+    const MAGNET = CONFIG.MAGNET;
 
     // Matrix Transformation Utility
     const Mat33 = {
@@ -243,7 +276,7 @@
 
     async function loadPuzzlesFromServer() {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT);
       
       try {
         const response = await fetch('levels.json', { 
@@ -263,7 +296,7 @@
         }
       } catch (err) {
         clearTimeout(timeoutId);
-        console.error('Error loading puzzles:', err);
+        logger.error('Error loading puzzles:', err);
         showNotification('Failed to load levels. Please ensure the server is running.', 'error');
       }
     }
@@ -301,7 +334,7 @@
       
       setTimeout(() => {
         notification.style.transform = 'translateX(400px)';
-      }, 5000);
+      }, CONFIG.NOTIFICATION_DURATION);
     }
 
     function fitToContainer() {
@@ -497,7 +530,7 @@
 
       keydownHandler = (e) => {
         if (!selectedPiece) return;
-        const dist = e.shiftKey ? 1 : 5;
+        const dist = e.shiftKey ? CONFIG.KEYBOARD_DIST_SHIFT : CONFIG.KEYBOARD_DIST_NORMAL;
         switch (e.key) {
           case 'ArrowLeft': case 'a': selectedPiece.x(selectedPiece.x() - dist); break;
           case 'ArrowRight': case 'd': selectedPiece.x(selectedPiece.x() + dist); break;

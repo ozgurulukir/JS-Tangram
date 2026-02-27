@@ -206,11 +206,55 @@
      * KONVA.JS TANGRAM PUZZLE LOGIC
      */
 
-    const BOARD_SIZE = 450;
-    const SNAP_COORD = 15;
-    const ROTATION_STEP = 45;
-    const UNIT = 36;
-    const MAGNET = 20;
+    /**
+     * GAME CONFIGURATION
+     * Centralized configuration for easy tuning and maintenance
+     */
+    const CONFIG = {
+      BOARD_SIZE: 450,
+      SNAP_COORD: 15,
+      ROTATION_STEP: 45,
+      UNIT: 36,
+      MAGNET: 20,
+      PREVIEW_SIZE: 256,
+      PREVIEW_SCALE_PADDING: 36,
+      COMPARE_SIZE: 300,
+      SIZE_TOLERANCE: 0.15,
+      SIMILARITY_THRESHOLD: 0.97,
+      SNAP_THRESHOLD: 5,
+      SCALE_THRESHOLD: 0.1,
+      KEYBOARD_DIST_NORMAL: 5,
+      KEYBOARD_DIST_SHIFT: 1,
+      FETCH_TIMEOUT: 10000,
+      NOTIFICATION_DURATION: 5000,
+      ANIMATION_HINT_DURATION: 0.6,
+      ANIMATION_REVEAL_DURATION: 0.8,
+      SHAKE_DURATION: 1000,
+      SHAKE_AMPLITUDE: 5,
+      DEBUG: false // Set to true for development logging
+    };
+
+    // Logger utility - suppresses logs in production
+    const logger = {
+      log: (...args) => {
+        if (CONFIG.DEBUG) {
+          console.log(...args);
+        }
+      },
+      error: (...args) => {
+        console.error(...args);
+      },
+      warn: (...args) => {
+        console.warn(...args);
+      }
+    };
+
+    // Aliases for backward compatibility
+    const BOARD_SIZE = CONFIG.BOARD_SIZE;
+    const SNAP_COORD = CONFIG.SNAP_COORD;
+    const ROTATION_STEP = CONFIG.ROTATION_STEP;
+    const UNIT = CONFIG.UNIT;
+    const MAGNET = CONFIG.MAGNET;
 
     /**
      * MATRIX TRANSFORMATION UTILITY (Homogeneous Coordinates)
@@ -347,7 +391,7 @@
 
     async function loadPuzzlesFromServer() {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT);
       
       try {
         const response = await fetch('levels.json', { 
@@ -371,7 +415,7 @@
         loadPuzzle(puzzleIndex);
       } catch (err) {
         clearTimeout(timeoutId);
-        console.error('Error loading puzzles:', err);
+        logger.error('Error loading puzzles:', err);
         
         let errorMessage = 'Failed to load levels. ';
         if (err.name === 'AbortError') {
@@ -421,7 +465,7 @@
       // Auto dismiss after 5 seconds
       setTimeout(() => {
         notification.style.transform = 'translateX(400px)';
-      }, 5000);
+      }, CONFIG.NOTIFICATION_DURATION);
     }
 
     function fitToContainer() {
@@ -701,7 +745,7 @@
         if (firstPiece) {
           const startX = firstPiece.x();
           hintAnimation = new Konva.Animation((frame) => {
-            firstPiece.x(startX + Math.sin(frame.time / 50) * 5);
+            firstPiece.x(startX + Math.sin(frame.time / 50) * CONFIG.SHAKE_AMPLITUDE);
           }, mainLayer);
           hintAnimation.start();
           setTimeout(() => {
@@ -711,7 +755,7 @@
             }
             firstPiece.x(startX);
             mainLayer.draw();
-          }, 1000);
+          }, CONFIG.SHAKE_DURATION);
         }
       }, 500);
     }
@@ -757,7 +801,7 @@
 
       keydownHandler = (e) => {
         if (!selectedPiece) return;
-        const dist = e.shiftKey ? 1 : 5;
+        const dist = e.shiftKey ? CONFIG.KEYBOARD_DIST_SHIFT : CONFIG.KEYBOARD_DIST_NORMAL;
         switch (e.key) {
           case 'ArrowLeft': case 'a': selectedPiece.x(selectedPiece.x() - dist); break;
           case 'ArrowRight': case 'd': selectedPiece.x(selectedPiece.x() + dist); break;
@@ -786,7 +830,7 @@
         const config = s;
         p.to({
           x: config.x, y: config.y, rotation: config.r, scaleX: config.sx,
-          duration: 0.8, easing: Konva.Easings.EaseInOut
+          duration: CONFIG.ANIMATION_REVEAL_DURATION * 1000, easing: Konva.Easings.EaseInOut
         });
       });
     }
@@ -809,14 +853,14 @@
         // Consider shortest rotation direction (0° and 360° are equivalent)
         const rotationDiff = Math.min(Math.abs(currentRot - targetRot), 360 - Math.abs(currentRot - targetRot));
         const dsx = Math.abs(p.scaleX() - s.sx);
-        return dx > 5 || dy > 5 || rotationDiff > 5 || dsx > 0.1;
+        return dx > CONFIG.SNAP_THRESHOLD || dy > CONFIG.SNAP_THRESHOLD || rotationDiff > CONFIG.SNAP_THRESHOLD || dsx > CONFIG.SCALE_THRESHOLD;
       });
 
       if (misplaced) {
         const s = sol[misplaced.id()];
         misplaced.to({
           x: s.x, y: s.y, rotation: s.r, scaleX: s.sx,
-          duration: 0.6, easing: Konva.Easings.EaseInOut,
+          duration: CONFIG.ANIMATION_HINT_DURATION * 1000, easing: Konva.Easings.EaseInOut,
           onFinish: () => {
             misplaced.stroke('#f59e0b');
             misplaced.strokeWidth(5);
@@ -833,13 +877,7 @@
     function checkSolution() {
       const sol = PUZZLES[puzzleIndex].sol;
 
-      // We will perform a pixel-based comparison using off-screen canvases.
-      // This approach is robust against:
-      // 1. Piece swapping (different pieces forming same shape)
-      // 2. Position shifting (we will align centers)
-      // 3. Floating point inaccuracies
-
-      const compareSize = 300;
+      const compareSize = CONFIG.COMPARE_SIZE;
       const compareCenter = compareSize / 2;
 
       // --- Helper: Draw a set of pieces to a canvas ---
@@ -921,19 +959,18 @@
 
       // --- Comparison Logic ---
 
-      // 1. Aspect Ratio / Size Check (Tolerance ~10%)
-      const sizeTolerance = 0.15;
+      // 1. Aspect Ratio / Size Check
       const wDiff = Math.abs(target.width - current.width);
       const hDiff = Math.abs(target.height - current.height);
 
-      if (wDiff > target.width * sizeTolerance || hDiff > target.height * sizeTolerance) {
+      if (wDiff > target.width * CONFIG.SIZE_TOLERANCE || hDiff > target.height * CONFIG.SIZE_TOLERANCE) {
         showNotification("The overall shape dimensions don't match. Check your edges!", 'error');
         return;
       }
 
       // 2. Pixel Difference Check using Jaccard Similarity
-      const imgData1 = target.ctx.getImageData(0, 0, compareSize, compareSize).data;
-      const imgData2 = current.ctx.getImageData(0, 0, compareSize, compareSize).data;
+      const imgData1 = target.ctx.getImageData(0, 0, CONFIG.COMPARE_SIZE, CONFIG.COMPARE_SIZE).data;
+      const imgData2 = current.ctx.getImageData(0, 0, CONFIG.COMPARE_SIZE, CONFIG.COMPARE_SIZE).data;
 
       let intersectionPixels = 0;
       let unionPixels = 0;
@@ -958,9 +995,7 @@
       const jaccardSimilarity = unionPixels > 0 ? intersectionPixels / unionPixels : 0;
       
       // Require 97% similarity for a valid solution
-      const similarityThreshold = 0.97;
-
-      if (jaccardSimilarity >= similarityThreshold) {
+      if (jaccardSimilarity >= CONFIG.SIMILARITY_THRESHOLD) {
         stopTimer();
         saveProgress(puzzleIndex, secondsElapsed);
 
@@ -975,7 +1010,7 @@
         }, 500);
       } else {
         const mismatchPercent = ((1 - jaccardSimilarity) * 100).toFixed(1);
-        console.log(`Shape mismatch: ${(jaccardSimilarity * 100).toFixed(2)}% similar, ${mismatchPercent}% different`);
+        logger.log(`Shape mismatch: ${(jaccardSimilarity * 100).toFixed(2)}% similar, ${mismatchPercent}% different`);
         showNotification(`Not quite! ${mismatchPercent}% mismatch. Keep trying!`, 'error');
       }
     }
@@ -1039,12 +1074,12 @@
         localStorage.setItem('tangram_progress', JSON.stringify(progress));
       } catch (e) {
         if (e.name === 'QuotaExceededError') {
-          console.warn('LocalStorage quota exceeded. Clearing old data...');
+          logger.warn('LocalStorage quota exceeded. Clearing old data...');
           localStorage.removeItem('tangram_progress');
           // Retry with fresh storage
           saveProgress(idx, time);
         } else {
-          console.error('Failed to save progress:', e);
+          logger.error('Failed to save progress:', e);
         }
       }
     }

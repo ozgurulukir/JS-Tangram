@@ -7,6 +7,25 @@ const path = require('path');
 
 const PORT = 8080;
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
+const DEBUG = process.env.NODE_ENV === 'development';
+
+// Logger utility - suppresses logs in production
+const logger = {
+  log: (...args) => {
+    if (DEBUG) {
+      console.log(...args);
+    }
+  },
+  error: (...args) => {
+    // Always log errors
+    console.error(...args);
+  },
+  warn: (...args) => {
+    // Always log warnings
+    console.warn(...args);
+  }
+};
+
 const MIME_TYPES = {
   '.html': 'text/html',
   '.css': 'text/css',
@@ -41,7 +60,7 @@ async function processWriteQueue() {
       }
     } catch (err) {
       if (err.code !== 'ENOENT') {
-        console.error('Error reading levels.json:', err);
+        logger.error('Error reading levels.json:', err);
       }
     }
     
@@ -61,7 +80,7 @@ async function processWriteQueue() {
       res.end(JSON.stringify({ success: true, message: 'Level saved' }));
     }
   } catch (err) {
-    console.error('Error saving level:', err);
+    logger.error('Error saving level:', err);
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Failed to save level', details: err.message }));
@@ -78,7 +97,7 @@ function queueLevelWrite(res, levelData) {
 }
 
 const server = http.createServer((req, res) => {
-  console.log(`${req.method} ${req.url}`);
+  logger.log(`${req.method} ${req.url}`);
 
   // Handle API requests
   if (req.url === '/api/save-level' && req.method === 'POST') {
