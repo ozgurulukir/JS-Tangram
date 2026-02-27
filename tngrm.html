@@ -274,17 +274,20 @@
     let timerInterval;
     let secondsElapsed = 0;
     let hintAnimation = null; // Track animation to prevent memory leak
+    let keydownHandler = null; // Track keydown listener to prevent leak
 
     function getPieceVertices(shape) {
       const def = PIECE_DEFS.find(d => d.id === shape.id());
       if (!def) return [];
       const tr = shape.getTransform();
       const pts = [];
+      const scaleX = shape.scaleX();
+      
       for (let i = 0; i < def.pts.length; i += 2) {
-        pts.push(tr.point({
-          x: def.pts[i] * UNIT,
-          y: def.pts[i + 1] * UNIT
-        }));
+        // Apply scaleX to x-coordinate (handles flip for parallelogram)
+        const x = def.pts[i] * UNIT * scaleX;
+        const y = def.pts[i + 1] * UNIT;
+        pts.push(tr.point({ x, y }));
       }
       return pts;
     }
@@ -333,28 +336,92 @@
 
       setupPieces();
 
-      // Load puzzles from JSON
-      fetch('levels.json')
-        .then(response => response.json())
-        .then(data => {
-          PUZZLES = data;
-
-          // Load saved progress
-          const savedIndex = localStorage.getItem('tangram_puzzle_index');
-          puzzleIndex = savedIndex ? parseInt(savedIndex, 10) : 0;
-          if (puzzleIndex >= PUZZLES.length) puzzleIndex = 0;
-
-          loadPuzzle(puzzleIndex);
-        })
-        .catch(err => {
-          console.error('Error loading puzzles:', err);
-          alert('Failed to load levels.json. Please ensure you are running the server.');
-        });
+      // Load puzzles from JSON with timeout and error handling
+      loadPuzzlesFromServer();
 
       setupEvents();
 
       window.addEventListener('resize', fitToContainer);
       fitToContainer();
+    }
+
+    async function loadPuzzlesFromServer() {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      try {
+        const response = await fetch('levels.json', { 
+          signal: controller.signal,
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        PUZZLES = data;
+
+        // Load saved progress
+        const savedIndex = localStorage.getItem('tangram_puzzle_index');
+        puzzleIndex = savedIndex ? parseInt(savedIndex, 10) : 0;
+        if (puzzleIndex >= PUZZLES.length) puzzleIndex = 0;
+
+        loadPuzzle(puzzleIndex);
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.error('Error loading puzzles:', err);
+        
+        let errorMessage = 'Failed to load levels. ';
+        if (err.name === 'AbortError') {
+          errorMessage += 'Request timed out. Please check your connection.';
+        } else {
+          errorMessage += 'Please ensure the server is running.';
+        }
+        
+        // Show user-friendly error notification
+        showNotification(errorMessage, 'error');
+      }
+    }
+
+    function showNotification(message, type = 'info') {
+      // Create or get existing notification element
+      let notification = document.getElementById('notification');
+      if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'notification';
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          padding: 16px 24px;
+          border-radius: 12px;
+          font-weight: 600;
+          font-size: 14px;
+          z-index: 10000;
+          transform: translateX(400px);
+          transition: transform 0.3s ease-out;
+          max-width: 400px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        document.body.appendChild(notification);
+      }
+      
+      const bgColor = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#6366f1';
+      notification.style.backgroundColor = bgColor;
+      notification.style.color = 'white';
+      notification.textContent = message;
+      
+      // Animate in
+      requestAnimationFrame(() => {
+        notification.style.transform = 'translateX(0)';
+      });
+      
+      // Auto dismiss after 5 seconds
+      setTimeout(() => {
+        notification.style.transform = 'translateX(400px)';
+      }, 5000);
     }
 
     function fitToContainer() {
@@ -389,7 +456,7 @@
 
         shape.on('dragstart', () => {
           select(shape);
-          shape.moveToTop();
+          shape.moveToTop(); // Bring to front when dragging starts
           shape.shadowOpacity(0.3).shadowOffset({ x: 10, y: 10 });
         });
 
@@ -587,6 +654,8 @@
       const p = PUZZLES[puzzleIndex];
       document.getElementById('puzzle-name').textContent = p.name;
 
+      // Stop any existing timer and start fresh
+      stopTimer();
       startTimer();
 
       previewLayer.destroyChildren();
@@ -671,7 +740,6 @@
       document.getElementById('next-puzzle-btn').onclick = () => {
         document.getElementById('win-overlay').classList.remove('active');
         loadPuzzle(puzzleIndex + 1);
-        reset();
       };
 
       document.getElementById('reset-btn').onclick = reset;
@@ -682,7 +750,12 @@
       document.getElementById('open-levels-btn').onclick = openLevelModal;
       document.getElementById('close-modal-btn').onclick = closeLevelModal;
 
-      document.addEventListener('keydown', (e) => {
+      // Remove existing keydown listener to prevent duplicates
+      if (keydownHandler) {
+        document.removeEventListener('keydown', keydownHandler);
+      }
+
+      keydownHandler = (e) => {
         if (!selectedPiece) return;
         const dist = e.shiftKey ? 1 : 5;
         switch (e.key) {
@@ -692,7 +765,9 @@
           case 'ArrowDown': case 's': selectedPiece.y(selectedPiece.y() + dist); break;
         }
         mainLayer.draw();
-      });
+      };
+
+      document.addEventListener('keydown', keydownHandler);
     }
 
     function reset() {
@@ -847,38 +922,45 @@
       // --- Comparison Logic ---
 
       // 1. Aspect Ratio / Size Check (Tolerance ~10%)
-      const sizeTolerance = 0.15; // Slightly loose to allow for rotation rounding errors
+      const sizeTolerance = 0.15;
       const wDiff = Math.abs(target.width - current.width);
       const hDiff = Math.abs(target.height - current.height);
-      
+
       if (wDiff > target.width * sizeTolerance || hDiff > target.height * sizeTolerance) {
-        alert("The overall shape dimensions don't match. Check your edges!");
+        showNotification("The overall shape dimensions don't match. Check your edges!", 'error');
         return;
       }
 
-      // 2. Pixel Difference Check
+      // 2. Pixel Difference Check using Jaccard Similarity
       const imgData1 = target.ctx.getImageData(0, 0, compareSize, compareSize).data;
       const imgData2 = current.ctx.getImageData(0, 0, compareSize, compareSize).data;
-      
+
+      let intersectionPixels = 0;
+      let unionPixels = 0;
       let diffPixels = 0;
-      let totalPixels = 0;
 
       for(let i = 3; i < imgData1.length; i += 4) {
-        const alpha1 = imgData1[i] > 128 ? 1 : 0; // Threshold alpha
+        const alpha1 = imgData1[i] > 128 ? 1 : 0;
         const alpha2 = imgData2[i] > 128 ? 1 : 0;
-        
+
         if (alpha1 || alpha2) {
-            totalPixels++; // Count pixels that are part of either shape
-            if (alpha1 !== alpha2) {
-                diffPixels++;
-            }
+          unionPixels++; // Pixel exists in either shape
+          
+          if (alpha1 && alpha2) {
+            intersectionPixels++; // Pixel exists in both shapes
+          } else {
+            diffPixels++; // Pixel exists in only one shape
+          }
         }
       }
 
-      // Allow small error (e.g., 5% mismatch) for anti-aliasing differences
-      const errorRate = diffPixels / totalPixels;
+      // Jaccard Similarity: intersection / union
+      const jaccardSimilarity = unionPixels > 0 ? intersectionPixels / unionPixels : 0;
       
-      if (errorRate < 0.05) {
+      // Require 97% similarity for a valid solution
+      const similarityThreshold = 0.97;
+
+      if (jaccardSimilarity >= similarityThreshold) {
         stopTimer();
         saveProgress(puzzleIndex, secondsElapsed);
 
@@ -886,10 +968,15 @@
         const seconds = (secondsElapsed % 60).toString().padStart(2, '0');
         document.getElementById('win-time').textContent = `${minutes}:${seconds}`;
 
-        document.getElementById('win-overlay').classList.add('active');
+        showNotification('Perfect match! Puzzle solved! 🎉', 'success');
+        
+        setTimeout(() => {
+          document.getElementById('win-overlay').classList.add('active');
+        }, 500);
       } else {
-        console.log(`Mismatch Rate: ${(errorRate*100).toFixed(2)}%`);
-        alert("Not quite! The silhouette doesn't match perfectly.");
+        const mismatchPercent = ((1 - jaccardSimilarity) * 100).toFixed(1);
+        console.log(`Shape mismatch: ${(jaccardSimilarity * 100).toFixed(2)}% similar, ${mismatchPercent}% different`);
+        showNotification(`Not quite! ${mismatchPercent}% mismatch. Keep trying!`, 'error');
       }
     }
 
@@ -923,7 +1010,6 @@
         `;
         btn.onclick = () => {
           loadPuzzle(i);
-          reset();
           closeLevelModal();
         };
         list.appendChild(btn);

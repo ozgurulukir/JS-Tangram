@@ -231,24 +231,77 @@
       }
 
       setupPieces();
-      
-      // Load puzzles to edit existing ones
-      fetch('levels.json')
-        .then(response => response.json())
-        .then(data => {
-          PUZZLES = data;
-          if (PUZZLES.length > 0) {
-            loadPuzzle(0);
-          }
-        })
-        .catch(err => {
-          console.error('Error loading puzzles:', err);
-        });
+
+      // Load puzzles to edit existing ones with error handling
+      loadPuzzlesFromServer();
 
       setupEvents();
 
       window.addEventListener('resize', fitToContainer);
       fitToContainer();
+    }
+
+    async function loadPuzzlesFromServer() {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      try {
+        const response = await fetch('levels.json', { 
+          signal: controller.signal,
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        PUZZLES = data;
+        if (PUZZLES.length > 0) {
+          loadPuzzle(0);
+        }
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.error('Error loading puzzles:', err);
+        showNotification('Failed to load levels. Please ensure the server is running.', 'error');
+      }
+    }
+
+    function showNotification(message, type = 'info') {
+      let notification = document.getElementById('notification');
+      if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'notification';
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          padding: 16px 24px;
+          border-radius: 12px;
+          font-weight: 600;
+          font-size: 14px;
+          z-index: 10000;
+          transform: translateX(400px);
+          transition: transform 0.3s ease-out;
+          max-width: 400px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        document.body.appendChild(notification);
+      }
+      
+      const bgColor = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#6366f1';
+      notification.style.backgroundColor = bgColor;
+      notification.style.color = 'white';
+      notification.textContent = message;
+      
+      requestAnimationFrame(() => {
+        notification.style.transform = 'translateX(0)';
+      });
+      
+      setTimeout(() => {
+        notification.style.transform = 'translateX(400px)';
+      }, 5000);
     }
 
     function fitToContainer() {
