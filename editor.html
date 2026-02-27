@@ -182,6 +182,7 @@
     let stage, mainLayer, currentPieces = [];
     let selectedPiece = null;
     let puzzleIndex = 0;
+    let keydownHandler = null; // Track to prevent listener leak
 
     function getPieceVertices(shape) {
       const def = PIECE_DEFS.find(d => d.id === shape.id());
@@ -436,7 +437,12 @@
 
       document.getElementById('save-btn').onclick = saveLevel;
 
-      document.addEventListener('keydown', (e) => {
+      // Remove existing listener to prevent duplicates
+      if (keydownHandler) {
+        document.removeEventListener('keydown', keydownHandler);
+      }
+
+      keydownHandler = (e) => {
         if (!selectedPiece) return;
         const dist = e.shiftKey ? 1 : 5;
         switch (e.key) {
@@ -446,7 +452,9 @@
           case 'ArrowDown': case 's': selectedPiece.y(selectedPiece.y() + dist); break;
         }
         mainLayer.draw();
-      });
+      };
+
+      document.addEventListener('keydown', keydownHandler);
     }
 
     function saveLevel() {
@@ -458,22 +466,33 @@
 
       // 1. Calculate Bounding Box to Center Logic
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      
+      let hasValidPieces = false;
+
       // First pass: find bounds
       currentPieces.forEach(p => {
         const pts = getPieceVertices(p);
+        if (pts.length === 0) return;
+        
+        hasValidPieces = true;
         pts.forEach(pt => {
-          if (pt.x < minX) minX = pt.x;
-          if (pt.x > maxX) maxX = pt.x;
-          if (pt.y < minY) minY = pt.y;
-          if (pt.y > maxY) maxY = pt.y;
+          if (isFinite(pt.x) && isFinite(pt.y)) {
+            minX = Math.min(minX, pt.x);
+            minY = Math.min(minY, pt.y);
+            maxX = Math.max(maxX, pt.x);
+            maxY = Math.max(maxY, pt.y);
+          }
         });
       });
+
+      if (!hasValidPieces || !isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
+        alert('Invalid piece configuration. Please arrange all pieces on the board.');
+        return;
+      }
 
       const centerX = (minX + maxX) / 2;
       const centerY = (minY + maxY) / 2;
       const targetCenter = BOARD_SIZE / 2;
-      
+
       const offsetX = targetCenter - centerX;
       const offsetY = targetCenter - centerY;
 
@@ -482,11 +501,17 @@
         // Apply offset to center the puzzle
         const newX = p.x() + offsetX;
         const newY = p.y() + offsetY;
-        
+
+        // Validate coordinates before saving
+        if (!isFinite(newX) || !isFinite(newY)) {
+          alert(`Invalid position for piece ${p.id()}`);
+          return;
+        }
+
         solution[p.id()] = {
           x: Math.round(newX),
           y: Math.round(newY),
-          r: Math.round(p.rotation()) % 360,
+          r: ((Math.round(p.rotation()) % 360) + 360) % 360, // Normalize rotation to 0-360
           sx: Math.round(p.scaleX())
         };
       });

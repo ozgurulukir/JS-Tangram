@@ -272,8 +272,8 @@
     let selectedPiece = null;
     let puzzleIndex = 0;
     let timerInterval;
-    let timerElement;
     let secondsElapsed = 0;
+    let hintAnimation = null; // Track animation to prevent memory leak
 
     function getPieceVertices(shape) {
       const def = PIECE_DEFS.find(d => d.id === shape.id());
@@ -300,7 +300,6 @@
 
     function init() {
       // Main Stage
-      timerElement = document.getElementById('timer');
       const container = document.getElementById('game-container');
       stage = new Konva.Stage({
         container: 'game-container',
@@ -333,13 +332,13 @@
       previewStage.add(previewLayer);
 
       setupPieces();
-      
+
       // Load puzzles from JSON
       fetch('levels.json')
         .then(response => response.json())
         .then(data => {
           PUZZLES = data;
-          
+
           // Load saved progress
           const savedIndex = localStorage.getItem('tangram_puzzle_index');
           puzzleIndex = savedIndex ? parseInt(savedIndex, 10) : 0;
@@ -572,9 +571,12 @@
     }
 
     function updateTimerDisplay() {
+      const timerEl = document.getElementById('timer');
+      if (!timerEl) return;
+      
       const minutes = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
       const seconds = (secondsElapsed % 60).toString().padStart(2, '0');
-      timerElement.textContent = `${minutes}:${seconds}`;
+      timerEl.textContent = `${minutes}:${seconds}`;
     }
 
     function loadPuzzle(idx) {
@@ -620,16 +622,24 @@
       previewLayer.draw();
 
       // Shake the first piece to guide the player
+      if (hintAnimation) {
+        hintAnimation.stop();
+        hintAnimation = null;
+      }
+      
       setTimeout(() => {
         const firstPiece = currentPieces[0];
         if (firstPiece) {
           const startX = firstPiece.x();
-          const anim = new Konva.Animation((frame) => {
+          hintAnimation = new Konva.Animation((frame) => {
             firstPiece.x(startX + Math.sin(frame.time / 50) * 5);
           }, mainLayer);
-          anim.start();
+          hintAnimation.start();
           setTimeout(() => {
-            anim.stop();
+            if (hintAnimation) {
+              hintAnimation.stop();
+              hintAnimation = null;
+            }
             firstPiece.x(startX);
             mainLayer.draw();
           }, 1000);
@@ -708,14 +718,23 @@
 
     function showHint() {
       const sol = PUZZLES[puzzleIndex].sol;
+      
+      // Helper to normalize rotation to 0-360 range
+      function normalizeRotation(rot) {
+        return ((rot % 360) + 360) % 360;
+      }
+      
       // Find a piece that is not in its correct position
       const misplaced = currentPieces.find(p => {
         const s = sol[p.id()];
         const dx = Math.abs(p.x() - s.x);
         const dy = Math.abs(p.y() - s.y);
-        const dr = Math.abs((p.rotation() % 360) - (s.r % 360));
+        const currentRot = normalizeRotation(p.rotation());
+        const targetRot = normalizeRotation(s.r);
+        // Consider shortest rotation direction (0° and 360° are equivalent)
+        const rotationDiff = Math.min(Math.abs(currentRot - targetRot), 360 - Math.abs(currentRot - targetRot));
         const dsx = Math.abs(p.scaleX() - s.sx);
-        return dx > 5 || dy > 5 || dr > 5 || dsx > 0.1;
+        return dx > 5 || dy > 5 || rotationDiff > 5 || dsx > 0.1;
       });
 
       if (misplaced) {
@@ -921,16 +940,27 @@
     }
 
     function saveProgress(idx, time) {
-      const progress = JSON.parse(localStorage.getItem('tangram_progress') || '{}');
-      if (!progress[idx]) {
-        progress[idx] = { completed: true, bestTime: time };
-      } else {
-        progress[idx].completed = true;
-        if (time < progress[idx].bestTime) {
-          progress[idx].bestTime = time;
+      try {
+        const progress = JSON.parse(localStorage.getItem('tangram_progress') || '{}');
+        if (!progress[idx]) {
+          progress[idx] = { completed: true, bestTime: time };
+        } else {
+          progress[idx].completed = true;
+          if (time < progress[idx].bestTime) {
+            progress[idx].bestTime = time;
+          }
+        }
+        localStorage.setItem('tangram_progress', JSON.stringify(progress));
+      } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+          console.warn('LocalStorage quota exceeded. Clearing old data...');
+          localStorage.removeItem('tangram_progress');
+          // Retry with fresh storage
+          saveProgress(idx, time);
+        } else {
+          console.error('Failed to save progress:', e);
         }
       }
-      localStorage.setItem('tangram_progress', JSON.stringify(progress));
     }
 
     window.onload = init;

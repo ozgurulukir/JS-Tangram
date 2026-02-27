@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
 const server = require('../server.js');
 
 test('Static file server', async (t) => {
@@ -43,6 +45,52 @@ test('Static file server', async (t) => {
   await t.test('returns 404 for non-existent file', async () => {
     const response = await fetch(`${baseUrl}/non-existent.html`);
     assert.strictEqual(response.status, 404);
+  });
+
+  // Path traversal is tested manually via test/path-traversal-test.js
+  // (Node's http.request normalizes URLs, making automated testing difficult)
+
+  await t.test('POST /api/save-level with valid data', async () => {
+    const levelData = {
+      name: 'Test Level',
+      sol: {
+        T1: { x: 100, y: 100, r: 0, sx: 1 }
+      }
+    };
+    
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(levelData)
+    });
+    
+    assert.strictEqual(response.status, 200);
+    const data = await response.json();
+    assert.strictEqual(data.success, true);
+  });
+
+  await t.test('POST /api/save-level with invalid JSON', async () => {
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'invalid json'
+    });
+    
+    assert.strictEqual(response.status, 400);
+    const data = await response.json();
+    assert.strictEqual(data.error, 'Invalid JSON');
+  });
+
+  await t.test('POST /api/save-level with missing fields', async () => {
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Test' }) // missing sol
+    });
+    
+    assert.strictEqual(response.status, 400);
+    const data = await response.json();
+    assert.strictEqual(data.error, 'Invalid level data: missing name or solution');
   });
 
   // Close the server after tests
