@@ -67,6 +67,21 @@ test('Static file server', async (t) => {
     assert.ok([403, 404].includes(response.status));
   });
 
+  await t.test('returns 403 for unmapped extension (README.md)', async () => {
+    const response = await fetch(`${baseUrl}/README.md`);
+    assert.strictEqual(response.status, 403);
+  });
+
+  await t.test('returns 403 for hidden files (.gitignore or similar)', async () => {
+    const response = await fetch(`${baseUrl}/.git`);
+    assert.strictEqual(response.status, 403);
+  });
+
+  await t.test('returns 403 for server script itself (server.js)', async () => {
+    const response = await fetch(`${baseUrl}/server.js`);
+    assert.strictEqual(response.status, 403);
+  });
+
   await t.test('POST /api/save-level with valid data', async () => {
     const levelData = {
       name: 'Test Level',

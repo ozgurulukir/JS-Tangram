@@ -162,7 +162,15 @@ const server = http.createServer((req, res) => {
   filePath = resolvedPath;
 
   const extname = path.extname(filePath);
-  const contentType = MIME_TYPES[extname] || 'application/octet-stream';
+  const contentType = MIME_TYPES[extname];
+
+  // Security: Block access to files without mapped MIME types, hidden files, and the server script itself
+  const basename = path.basename(filePath);
+  if (!contentType || basename.startsWith('.') || filePath === __filename) {
+    res.writeHead(403, { 'Content-Type': 'text/plain' });
+    res.end('403 Forbidden: Access denied');
+    return;
+  }
 
   fs.readFile(filePath, (err, content) => {
     if (err) {
