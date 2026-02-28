@@ -95,8 +95,22 @@ global.localStorage = {
   removeItem: () => {}
 };
 
+// Expose the necessary functions globally for eval
+let checkShapeDimensions, calculateJaccardSimilarity;
+
+const mockedScriptContent = scriptContent.replace(
+  'function checkShapeDimensions',
+  'global.checkShapeDimensions = function checkShapeDimensions'
+).replace(
+  'function calculateJaccardSimilarity',
+  'global.calculateJaccardSimilarity = function calculateJaccardSimilarity'
+);
+
 // Evaluate the script content
-eval(scriptContent);
+eval(mockedScriptContent);
+
+checkShapeDimensions = global.checkShapeDimensions;
+calculateJaccardSimilarity = global.calculateJaccardSimilarity;
 
 // Tests
 test('Validation Logic', async (t) => {

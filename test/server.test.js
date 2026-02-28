@@ -48,13 +48,12 @@ test('Static file server', async (t) => {
     assert.strictEqual(await response.text(), '404 Not Found');
   });
 
-  await t.test('returns 500 for reading a directory as a file', async () => {
-    // '/test' is a directory in the project root.
-    // The server maps it to './test' and tries to fs.readFile it, resulting in EISDIR.
+  await t.test('returns 403 for reading a sensitive directory', async () => {
+    // '/test' is a directory in the project root that is blocked by the sensitive files list.
     const response = await fetch(`${baseUrl}/test`);
-    assert.strictEqual(response.status, 500);
+    assert.strictEqual(response.status, 403);
     const text = await response.text();
-    assert.ok(text.startsWith('500 Internal Server Error: EISDIR'), `Expected 500 EISDIR error, got: ${text}`);
+    assert.strictEqual(text, '403 Forbidden: Access denied');
   });
 
   await t.test('returns correct MIME type for CSS files', async () => {
@@ -187,7 +186,7 @@ test('Static file server', async (t) => {
     for (const payload of payloads) {
       const response = await fetch(`${baseUrl}/api/save-level`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
         body: payload
       });
       assert.strictEqual(response.status, 400);
@@ -202,7 +201,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with array instead of object', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
       body: JSON.stringify([{ name: 'Test', sol: {} }])
     });
 
@@ -214,7 +213,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with malformed JSON (missing quote)', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
       body: '{"name": "Test", "sol": {T1: {}}}' // missing quotes around T1
     });
 
@@ -228,7 +227,7 @@ test('Static file server', async (t) => {
     const largeString = 'a'.repeat(1024 * 1024 + 10);
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
       body: largeString
     });
 
