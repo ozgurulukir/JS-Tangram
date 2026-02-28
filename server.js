@@ -42,6 +42,9 @@ const MIME_TYPES = {
 let fileWriteLock = false;
 const writeQueue = [];
 
+// In-memory cache for static files
+const fileCache = new Map();
+
 async function processWriteQueue() {
   if (fileWriteLock || writeQueue.length === 0) return;
   
@@ -75,6 +78,9 @@ async function processWriteQueue() {
     // Write updated levels
     await fsPromises.writeFile(levelsPath, JSON.stringify(levels, null, 2), 'utf8');
     
+    // Invalidate cache for levels.json
+    fileCache.delete(levelsPath);
+
     if (!res.headersSent) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, message: 'Level saved' }));
@@ -164,6 +170,24 @@ const server = http.createServer((req, res) => {
   const extname = path.extname(filePath);
   const contentType = MIME_TYPES[extname] || 'application/octet-stream';
 
+  // Determine if file should be cached by client
+  // Don't cache JSON files as they may contain dynamic data like levels
+  const cacheControlHeader = extname === '.json'
+    ? 'no-cache, no-store, must-revalidate'
+    : 'public, max-age=3600';
+
+  // Check cache first
+  if (fileCache.has(filePath)) {
+    const cachedContent = fileCache.get(filePath);
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': cacheControlHeader
+    });
+    res.end(cachedContent, 'utf-8');
+    return;
+  }
+
+  // Read file and cache it
   fs.readFile(filePath, (err, content) => {
     if (err) {
       if (err.code === 'ENOENT') {
@@ -174,7 +198,14 @@ const server = http.createServer((req, res) => {
         res.end('500 Internal Server Error: ' + err.code);
       }
     } else {
-      res.writeHead(200, { 'Content-Type': contentType });
+      // Only cache small files (under 1MB)
+      if (content.length <= 1024 * 1024) {
+        fileCache.set(filePath, content);
+      }
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': cacheControlHeader
+      });
       res.end(content, 'utf-8');
     }
   });
