@@ -129,6 +129,7 @@
     </div>
   </div>
 
+  <script src="js/constants.js"></script>
   <script>
     /**
      * KONVA.JS TANGRAM EDITOR LOGIC
@@ -204,16 +205,6 @@
         y: p.x * m[1] + p.y * m[4] + m[7]
       })
     };
-
-    const PIECE_DEFS = [
-      { id: 'T1', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#ef4444', off: [2, 1] },
-      { id: 'T2', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#f97316', off: [2, 1] },
-      { id: 'T3', type: 'poly', pts: [0, 0, 2, 0, 0, 2], color: '#22c55e', off: [0.67, 0.67] },
-      { id: 'T4', type: 'poly', pts: [0, 0, 2, 0, 1, 1], color: '#8b5cf6', off: [1, 0.5] },
-      { id: 'T5', type: 'poly', pts: [0, 0, 2, 0, 1, 1], color: '#3b82f6', off: [1, 0.5] },
-      { id: 'SQ', type: 'poly', pts: [1, 0, 2, 1, 1, 2, 0, 1], color: '#eab308', off: [1, 1] },
-      { id: 'PL', type: 'poly', pts: [0, 0, 2, 0, 3, 1, 1, 1], color: '#06b6d4', off: [1.5, 0.5] }
-    ];
 
     let PUZZLES = [];
     let stage, mainLayer, currentPieces = [];
