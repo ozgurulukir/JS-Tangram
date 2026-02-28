@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('node:http');
 const fs = require('node:fs');
@@ -7,6 +8,31 @@ const server = require('../server.js');
 
 test('Static file server', async (t) => {
   let address;
+  const levelsPath = path.join(__dirname, '../levels.json');
+  const backupPath = path.join(__dirname, '../levels.json.bak');
+
+  before(async () => {
+    // Backup levels.json
+    try {
+      if (fs.existsSync(levelsPath)) {
+        fs.copyFileSync(levelsPath, backupPath);
+      }
+    } catch (e) {
+      console.error('Failed to backup levels.json:', e);
+    }
+  });
+
+  after(async () => {
+    // Restore levels.json
+    try {
+      if (fs.existsSync(backupPath)) {
+        fs.copyFileSync(backupPath, levelsPath);
+        fs.unlinkSync(backupPath);
+      }
+    } catch (e) {
+      console.error('Failed to restore levels.json:', e);
+    }
+  });
 
   // Start the server on a random port
   await new Promise((resolve) => {
@@ -68,8 +94,9 @@ test('Static file server', async (t) => {
   });
 
   await t.test('POST /api/save-level with valid data', async () => {
+    const uniqueName = `Test Level ${Date.now()}`;
     const levelData = {
-      name: 'Test Level',
+      name: uniqueName,
       sol: {
         T1: { x: 100, y: 100, r: 0, sx: 1 }
       }
@@ -84,6 +111,17 @@ test('Static file server', async (t) => {
     assert.strictEqual(response.status, 200);
     const data = await response.json();
     assert.strictEqual(data.success, true);
+
+    // Give the server a moment to finish file writing since it's asynchronous
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Verify the file was actually saved correctly
+    const levelsContent = fs.readFileSync(levelsPath, 'utf8');
+    const levels = JSON.parse(levelsContent);
+    const savedLevel = levels.find(l => l.name === uniqueName);
+
+    assert.ok(savedLevel, 'The new level should be saved in levels.json');
+    assert.strictEqual(savedLevel.sol.T1.x, 100, 'The level data should match what was sent');
   });
 
   await t.test('POST /api/save-level with invalid JSON', async () => {
@@ -130,6 +168,26 @@ test('Static file server', async (t) => {
     });
 
     assert.strictEqual(response.status, 400);
+  });
+
+  await t.test('POST /api/save-level with payload too large', async () => {
+    // MAX_BODY_SIZE is 1MB, so we send a payload slightly larger
+    const hugeData = {
+      name: 'Huge Level',
+      sol: {
+        data: 'x'.repeat(1024 * 1024 + 10)
+      }
+    };
+
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(hugeData)
+    });
+
+    assert.strictEqual(response.status, 413);
+    const data = await response.json();
+    assert.strictEqual(data.error, 'Payload too large');
   });
 
   await t.test('POST /api/save-level updates existing level with same name', async () => {
