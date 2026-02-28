@@ -241,9 +241,17 @@ const server = http.createServer(async (req, res) => {
 
   const extname = path.extname(filePath);
 
-  // Fix source code disclosure: block unmapped extensions, dotfiles, and server.js
+  // Fix source code disclosure: block unmapped extensions, dotfiles, and sensitive files/directories
   const baseName = path.basename(filePath);
-  if (!MIME_TYPES[extname] || baseName.startsWith('.') || baseName === 'server.js') {
+  const relativePath = path.relative(rootDir, resolvedPath);
+  const topLevel = relativePath.split(path.sep)[0];
+  const SENSITIVE_FILES = [
+    'server.js', 'package.json', 'package-lock.json', '.env', '.git',
+    'test', 'test_dir', 'README.md', 'LICENSE', 'benchmark.js',
+    'benchmark2.js', 'test_canvas.js'
+  ];
+
+  if (!MIME_TYPES[extname] || baseName.startsWith('.') || SENSITIVE_FILES.includes(topLevel)) {
     res.writeHead(403, { ...securityHeaders, 'Content-Type': 'text/plain' });
     res.end('403 Forbidden: Access denied');
     return;
