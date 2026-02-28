@@ -361,9 +361,24 @@
       let bestDy = 0;
       const magnetSq = MAGNET * MAGNET;
 
+      const thisBox = shape.getClientRect();
+      const expand = MAGNET;
+      const minX = thisBox.x - expand;
+      const maxX = thisBox.x + thisBox.width + expand;
+      const minY = thisBox.y - expand;
+      const maxY = thisBox.y + thisBox.height + expand;
+
       for (let i = 0; i < currentPieces.length; i++) {
         const p = currentPieces[i];
         if (p === shape) continue;
+
+        const otherBox = p.getClientRect();
+        if (minX > otherBox.x + otherBox.width ||
+            maxX < otherBox.x ||
+            minY > otherBox.y + otherBox.height ||
+            maxY < otherBox.y) {
+          continue;
+        }
 
         const otherPts = getPieceVertices(p);
         const snap = MathUtils.getClosestSnap(thisPts, otherPts, magnetSq, bestDistSq);
