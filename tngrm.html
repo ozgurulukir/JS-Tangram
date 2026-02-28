@@ -13,26 +13,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://unpkg.com/konva@9/konva.min.js"></script>
   <link rel="stylesheet" href="style.css">
-  <style>
-    body {
-      font-family: 'Nunito', 'Outfit', sans-serif;
-    }
-
-    #game-container {
-      touch-action: none;
-      background-color: #fcfaf8;
-    }
-
-    .win-overlay {
-      display: none;
-    }
-
-    .win-overlay.active {
-      display: flex;
-      opacity: 1;
-      pointer-events: auto;
-    }
-  </style>
 </head>
 
 <body class="min-h-screen bg-[#fcfaf8] flex items-center justify-center p-4">
@@ -135,7 +115,7 @@
         <div class="relative w-full aspect-square max-w-[480px]">
           <div class="absolute -inset-4 bg-stone-200/40 rounded-[3rem] -rotate-2 scale-105"></div>
           <div id="game-container"
-            class="relative bg-white rounded-[2.5rem] shadow-inner border-[12px] border-stone-900 overflow-hidden w-full aspect-square">
+            class="relative bg-[#fcfaf8] rounded-[2.5rem] shadow-inner border-[12px] border-stone-900 overflow-hidden w-full aspect-square">
           </div>
         </div>
       </div>
@@ -191,6 +171,7 @@
   </div>
 
   <script src="js/constants.js"></script>
+  <script src="js/math.js"></script>
   <script>
     (() => {
     /**
@@ -246,56 +227,6 @@
     const ROTATION_STEP = CONFIG.ROTATION_STEP;
     const UNIT = CONFIG.UNIT;
     const MAGNET = CONFIG.MAGNET;
-
-    /**
-     * MATRIX TRANSFORMATION UTILITY (Homogeneous Coordinates)
-     * Inspired by "Representing 2D Transformations as Matrices"
-     */
-    const Mat33 = {
-      identity: () => [1, 0, 0, 0, 1, 0, 0, 0, 1],
-      multiply: (a, b) => {
-        const b0 = b[0], b1 = b[1], b2 = b[2];
-        const b3 = b[3], b4 = b[4], b5 = b[5];
-        const b6 = b[6], b7 = b[7], b8 = b[8];
-
-        let a0 = a[0], a1 = a[1], a2 = a[2];
-        const r0 = a0*b0 + a1*b3 + a2*b6;
-        const r1 = a0*b1 + a1*b4 + a2*b7;
-        const r2 = a0*b2 + a1*b5 + a2*b8;
-
-        a0 = a[3]; a1 = a[4]; a2 = a[5];
-        const r3 = a0*b0 + a1*b3 + a2*b6;
-        const r4 = a0*b1 + a1*b4 + a2*b7;
-        const r5 = a0*b2 + a1*b5 + a2*b8;
-
-        a0 = a[6]; a1 = a[7]; a2 = a[8];
-        const r6 = a0*b0 + a1*b3 + a2*b6;
-        const r7 = a0*b1 + a1*b4 + a2*b7;
-        const r8 = a0*b2 + a1*b5 + a2*b8;
-
-        return [r0, r1, r2, r3, r4, r5, r6, r7, r8];
-      },
-      translate: (tx, ty) => [1, 0, 0, 0, 1, 0, tx, ty, 1],
-      rotate: (deg) => {
-        const rad = deg * Math.PI / 180;
-        const c = Math.cos(rad);
-        const s = Math.sin(rad);
-        return [c, s, 0, -s, c, 0, 0, 0, 1];
-      },
-      scale: (sx, sy) => [sx, 0, 0, 0, sy, 0, 0, 0, 1],
-      point: (m, p) => ({
-        x: p.x * m[0] + p.y * m[3] + m[6],
-        y: p.x * m[1] + p.y * m[4] + m[7]
-      }),
-      // Helper to generate a piece's transformation matrix
-      getTransformMatrix: (x, y, r, sx, offX, offY) => {
-        let m = Mat33.translate(-offX * UNIT, -offY * UNIT); // Pivot to origin
-        m = Mat33.multiply(m, Mat33.scale(sx, 1));
-        m = Mat33.multiply(m, Mat33.rotate(r));
-        m = Mat33.multiply(m, Mat33.translate(x, y));
-        return m;
-      }
-    };
 
     let PUZZLES = [];
 
@@ -585,27 +516,38 @@
     function handleSnap(shape) {
       let snapped = false;
       const thisPts = getPieceVertices(shape);
-      let best = { dist: Infinity, dx: 0, dy: 0 };
 
-      currentPieces.forEach(p => {
-        if (p === shape) return;
+      let bestDistSq = Infinity;
+      let bestDx = 0;
+      let bestDy = 0;
+      const magnetSq = MAGNET * MAGNET;
+
+      for (let i = 0; i < currentPieces.length; i++) {
+        const p = currentPieces[i];
+        if (p === shape) continue;
+
         const otherPts = getPieceVertices(p);
-        thisPts.forEach(tp => {
-          otherPts.forEach(op => {
+        for (let j = 0; j < thisPts.length; j++) {
+          const tp = thisPts[j];
+          for (let k = 0; k < otherPts.length; k++) {
+            const op = otherPts[k];
             const dx = op.x - tp.x;
             const dy = op.y - tp.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < MAGNET && dist < best.dist) {
-              best = { dist, dx, dy };
-            }
-          });
-        });
-      });
+            const distSq = dx * dx + dy * dy;
 
-      if (best.dist < MAGNET) {
+            if (distSq < magnetSq && distSq < bestDistSq) {
+              bestDistSq = distSq;
+              bestDx = dx;
+              bestDy = dy;
+            }
+          }
+        }
+      }
+
+      if (bestDistSq < magnetSq) {
         shape.to({
-          x: shape.x() + best.dx,
-          y: shape.y() + best.dy,
+          x: shape.x() + bestDx,
+          y: shape.y() + bestDy,
           duration: 0.1,
           easing: Konva.Easings.EaseInOut,
           onFinish: () => {
@@ -903,6 +845,17 @@
       return unionPixels > 0 ? intersectionPixels / unionPixels : 0;
     }
 
+    // Initialize canvases for solution verification outside to reuse them
+    const targetCanvas = document.createElement('canvas');
+    targetCanvas.width = CONFIG.COMPARE_SIZE;
+    targetCanvas.height = CONFIG.COMPARE_SIZE;
+    const targetCtx = targetCanvas.getContext('2d', { willReadFrequently: true });
+
+    const currentCanvas = document.createElement('canvas');
+    currentCanvas.width = CONFIG.COMPARE_SIZE;
+    currentCanvas.height = CONFIG.COMPARE_SIZE;
+    const currentCtx = currentCanvas.getContext('2d', { willReadFrequently: true });
+
     function checkSolution() {
       const sol = PUZZLES[puzzleIndex].sol;
 
@@ -910,11 +863,8 @@
       const compareCenter = compareSize / 2;
 
       // --- Helper: Draw a set of pieces to a canvas ---
-      function drawStateToCanvas(pieceStates, isSolutionData) {
-        const canvas = document.createElement('canvas');
-        canvas.width = compareSize;
-        canvas.height = compareSize;
-        const ctx = canvas.getContext('2d');
+      function drawStateToCanvas(pieceStates, isSolutionData, canvas, ctx) {
+        ctx.clearRect(0, 0, compareSize, compareSize);
         
         // 1. Calculate Bounding Box
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -944,7 +894,7 @@
           // Calculate vertices manually using Mat33
           const matrix = Mat33.getTransformMatrix(
             config.x, config.y, config.r, config.sx, 
-            def.off[0], def.off[1]
+            def.off[0], def.off[1], UNIT
           );
 
           const poly = [];
@@ -980,11 +930,11 @@
         });
         ctx.fill();
 
-        return { canvas, ctx, width, height };
+        return { width, height };
       }
 
-      const target = drawStateToCanvas(sol, true);
-      const current = drawStateToCanvas(currentPieces, false);
+      const target = drawStateToCanvas(sol, true, targetCanvas, targetCtx);
+      const current = drawStateToCanvas(currentPieces, false, currentCanvas, currentCtx);
 
       // --- Comparison Logic ---
 
@@ -995,8 +945,8 @@
       }
 
       // 2. Pixel Difference Check using Jaccard Similarity
-      const imgData1 = target.ctx.getImageData(0, 0, CONFIG.COMPARE_SIZE, CONFIG.COMPARE_SIZE).data;
-      const imgData2 = current.ctx.getImageData(0, 0, CONFIG.COMPARE_SIZE, CONFIG.COMPARE_SIZE).data;
+      const imgData1 = targetCtx.getImageData(0, 0, CONFIG.COMPARE_SIZE, CONFIG.COMPARE_SIZE).data;
+      const imgData2 = currentCtx.getImageData(0, 0, CONFIG.COMPARE_SIZE, CONFIG.COMPARE_SIZE).data;
 
       const jaccardSimilarity = calculateJaccardSimilarity(imgData1, imgData2);
       

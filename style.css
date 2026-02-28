@@ -1,3 +1,21 @@
+body {
+  font-family: 'Nunito', 'Outfit', sans-serif;
+}
+
+#game-container {
+  touch-action: none;
+}
+
+.win-overlay {
+  display: none;
+}
+
+.win-overlay.active {
+  display: flex;
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .btn-action {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
