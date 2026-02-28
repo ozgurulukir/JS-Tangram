@@ -12,38 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;900&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://unpkg.com/konva@9/konva.min.js"></script>
-  <style>
-    body {
-      font-family: 'Nunito', 'Outfit', sans-serif;
-    }
-
-    #game-container {
-      touch-action: none;
-      background-color: #fcfaf8;
-    }
-
-    .btn-action {
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .btn-action:hover {
-      transform: translateY(-2px);
-    }
-
-    .btn-action:active {
-      transform: translateY(0);
-    }
-
-    .win-overlay {
-      display: none;
-    }
-
-    .win-overlay.active {
-      display: flex;
-      opacity: 1;
-      pointer-events: auto;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body class="min-h-screen bg-[#fcfaf8] flex items-center justify-center p-4">
@@ -146,7 +115,7 @@
         <div class="relative w-full aspect-square max-w-[480px]">
           <div class="absolute -inset-4 bg-stone-200/40 rounded-[3rem] -rotate-2 scale-105"></div>
           <div id="game-container"
-            class="relative bg-white rounded-[2.5rem] shadow-inner border-[12px] border-stone-900 overflow-hidden w-full aspect-square">
+            class="relative bg-[#fcfaf8] rounded-[2.5rem] shadow-inner border-[12px] border-stone-900 overflow-hidden w-full aspect-square">
           </div>
         </div>
       </div>
