@@ -1,0 +1,21 @@
+.btn-action {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-action:hover {
+  transform: translateY(-2px);
+}
+
+.btn-action:active {
+  transform: translateY(0);
+}
+
+.win-overlay {
+  display: none;
+}
+
+.win-overlay.active {
+  display: flex;
+  opacity: 1;
+  pointer-events: auto;
+}
