@@ -48,10 +48,12 @@ test('Static file server', async (t) => {
   });
 
   await t.test('returns correct MIME type for CSS files', async () => {
-    // Test with a non-existent CSS file - should return 404 but with correct MIME if it existed
+    // Test with a CSS file - should return 200 with correct MIME type
     const response = await fetch(`${baseUrl}/style.css`);
-    // Will be 404, but the MIME type mapping exists
-    assert.strictEqual(response.status, 404);
+    // Should be 200
+    assert.strictEqual(response.status, 200);
+    // Should have text/css MIME type
+    assert.strictEqual(response.headers.get('content-type'), 'text/css');
   });
 
   await t.test('returns correct MIME type for JS files', async () => {
