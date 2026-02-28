@@ -26,6 +26,12 @@ const logger = {
   }
 };
 
+const securityHeaders = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block'
+};
+
 const MIME_TYPES = {
   '.html': 'text/html',
   '.css': 'text/css',
@@ -76,13 +82,13 @@ async function processWriteQueue() {
     await fsPromises.writeFile(levelsPath, JSON.stringify(levels, null, 2), 'utf8');
     
     if (!res.headersSent) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.writeHead(200, { 'Content-Type': 'application/json', ...securityHeaders });
       res.end(JSON.stringify({ success: true, message: 'Level saved' }));
     }
   } catch (err) {
     logger.error('Error saving level:', err);
     if (!res.headersSent) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.writeHead(500, { 'Content-Type': 'application/json', ...securityHeaders });
       res.end(JSON.stringify({ error: 'Failed to save level', details: err.message }));
     }
   } finally {
@@ -110,7 +116,7 @@ const server = http.createServer((req, res) => {
       bodySize += chunk.length;
       if (bodySize > MAX_BODY_SIZE) {
         tooLarge = true;
-        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.writeHead(413, { 'Content-Type': 'application/json', ...securityHeaders });
         res.end(JSON.stringify({ error: 'Payload too large' }));
         req.destroy();
         return;
@@ -126,7 +132,7 @@ const server = http.createServer((req, res) => {
         
         // Validate required fields
         if (!newLevel.name || !newLevel.sol) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, { 'Content-Type': 'application/json', ...securityHeaders });
           res.end(JSON.stringify({ error: 'Invalid level data: missing name or solution' }));
           return;
         }
@@ -134,7 +140,7 @@ const server = http.createServer((req, res) => {
         // Queue the write operation to prevent race conditions
         queueLevelWrite(res, newLevel);
       } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, { 'Content-Type': 'application/json', ...securityHeaders });
         res.end(JSON.stringify({ error: 'Invalid JSON', details: e.message }));
       }
     });
@@ -154,7 +160,7 @@ const server = http.createServer((req, res) => {
   
   // Ensure the resolved path is within the project root
   if (!resolvedPath.startsWith(rootDir)) {
-    res.writeHead(403, { 'Content-Type': 'text/plain' });
+    res.writeHead(403, { 'Content-Type': 'text/plain', ...securityHeaders });
     res.end('403 Forbidden: Access denied');
     return;
   }
@@ -167,14 +173,14 @@ const server = http.createServer((req, res) => {
   fs.readFile(filePath, (err, content) => {
     if (err) {
       if (err.code === 'ENOENT') {
-        res.writeHead(404);
+        res.writeHead(404, securityHeaders);
         res.end('404 Not Found');
       } else {
-        res.writeHead(500);
+        res.writeHead(500, securityHeaders);
         res.end('500 Internal Server Error: ' + err.code);
       }
     } else {
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, { 'Content-Type': contentType, ...securityHeaders });
       res.end(content, 'utf-8');
     }
   });

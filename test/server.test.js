@@ -22,6 +22,9 @@ test('Static file server', async (t) => {
     const response = await fetch(`${baseUrl}/`);
     assert.strictEqual(response.status, 200);
     assert.strictEqual(response.headers.get('content-type'), 'text/html');
+    assert.strictEqual(response.headers.get('x-content-type-options'), 'nosniff');
+    assert.strictEqual(response.headers.get('x-frame-options'), 'DENY');
+    assert.strictEqual(response.headers.get('x-xss-protection'), '1; mode=block');
   });
 
   await t.test('returns 200 for existing file (tngrm.html)', async () => {
