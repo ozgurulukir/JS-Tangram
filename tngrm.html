@@ -228,6 +228,12 @@
     const UNIT = CONFIG.UNIT;
     const MAGNET = CONFIG.MAGNET;
 
+    // Pre-calculate scaled coordinates to avoid repeated multiplications
+    PIECE_DEFS.forEach(def => {
+      def.scaledPts = def.pts.map(p => p * UNIT);
+      def.scaledOff = [def.off[0] * UNIT, def.off[1] * UNIT];
+    });
+
     let PUZZLES = [];
 
     let stage, mainLayer, previewStage, previewLayer, currentPieces = [];
@@ -245,10 +251,10 @@
       const pts = [];
       const scaleX = shape.scaleX();
       
-      for (let i = 0; i < def.pts.length; i += 2) {
+      for (let i = 0; i < def.scaledPts.length; i += 2) {
         // Apply scaleX to x-coordinate (handles flip for parallelogram)
-        const x = def.pts[i] * UNIT * scaleX;
-        const y = def.pts[i + 1] * UNIT;
+        const x = def.scaledPts[i] * scaleX;
+        const y = def.scaledPts[i + 1];
         pts.push(tr.point({ x, y }));
       }
       return pts;
@@ -399,7 +405,7 @@
       PIECE_DEFS.forEach((def, i) => {
         const initPos = getInitialPosition(i);
         const shape = new Konva.Line({
-          points: def.pts.map(p => p * UNIT),
+          points: def.scaledPts,
           fill: def.color,
           stroke: '#666',
           strokeWidth: 1.5,
@@ -407,7 +413,7 @@
           draggable: true,
           id: def.id,
           name: 'piece',
-          offset: { x: def.off[0] * UNIT, y: def.off[1] * UNIT },
+          offset: { x: def.scaledOff[0], y: def.scaledOff[1] },
           x: initPos.x,
           y: initPos.y,
           shadowColor: 'rgba(0,0,0,0.1)',
@@ -655,14 +661,14 @@
         // unless we wrapped it in JSON (which we didn't in my previous Write)
         const config = s; 
         group.add(new Konva.Line({
-          points: def.pts.map(p => p * UNIT),
+          points: def.scaledPts,
           fill: '#444',
           closed: true,
           x: config.x,
           y: config.y,
           rotation: config.r,
           scaleX: config.sx,
-          offset: { x: def.off[0] * UNIT, y: def.off[1] * UNIT }
+          offset: { x: def.scaledOff[0], y: def.scaledOff[1] }
         }));
       });
 
@@ -894,12 +900,12 @@
           // Calculate vertices manually using Mat33
           const matrix = Mat33.getTransformMatrix(
             config.x, config.y, config.r, config.sx, 
-            def.off[0], def.off[1], UNIT
+            def.scaledOff[0], def.scaledOff[1], 1
           );
 
           const poly = [];
-          for(let i=0; i<def.pts.length; i+=2) {
-            const pt = Mat33.point(matrix, { x: def.pts[i] * UNIT, y: def.pts[i+1] * UNIT });
+          for(let i=0; i<def.scaledPts.length; i+=2) {
+            const pt = Mat33.point(matrix, { x: def.scaledPts[i], y: def.scaledPts[i+1] });
             poly.push(pt);
             if (pt.x < minX) minX = pt.x;
             if (pt.x > maxX) maxX = pt.x;
