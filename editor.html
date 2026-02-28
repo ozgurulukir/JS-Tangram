@@ -12,6 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+  <script src="js/utils.js"></script>
   <style>
     body {
       font-family: 'Outfit', sans-serif;
@@ -172,34 +173,6 @@
     const ROTATION_STEP = CONFIG.ROTATION_STEP;
     const UNIT = CONFIG.UNIT;
     const MAGNET = CONFIG.MAGNET;
-
-    // Matrix Transformation Utility
-    const Mat33 = {
-      identity: () => [1, 0, 0, 0, 1, 0, 0, 0, 1],
-      multiply: (a, b) => {
-        const res = new Array(9).fill(0);
-        for (let i = 0; i < 3; i++) {
-          for (let j = 0; j < 3; j++) {
-            for (let k = 0; k < 3; k++) {
-              res[i * 3 + j] += a[i * 3 + k] * b[k * 3 + j];
-            }
-          }
-        }
-        return res;
-      },
-      translate: (tx, ty) => [1, 0, 0, 0, 1, 0, tx, ty, 1],
-      rotate: (deg) => {
-        const rad = deg * Math.PI / 180;
-        const c = Math.cos(rad);
-        const s = Math.sin(rad);
-        return [c, s, 0, -s, c, 0, 0, 0, 1];
-      },
-      scale: (sx, sy) => [sx, 0, 0, 0, sy, 0, 0, 0, 1],
-      point: (m, p) => ({
-        x: p.x * m[0] + p.y * m[3] + m[6],
-        y: p.x * m[1] + p.y * m[4] + m[7]
-      })
-    };
 
     const PIECE_DEFS = [
       { id: 'T1', type: 'poly', pts: [0, 0, 4, 0, 2, 2], color: '#ef4444', off: [2, 1] },
