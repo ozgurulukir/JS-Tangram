@@ -889,6 +889,33 @@
       }
     }
 
+    function checkShapeDimensions(targetWidth, targetHeight, currentWidth, currentHeight, tolerance) {
+      const wDiff = Math.abs(targetWidth - currentWidth);
+      const hDiff = Math.abs(targetHeight - currentHeight);
+      return wDiff <= targetWidth * tolerance && hDiff <= targetHeight * tolerance;
+    }
+
+    function calculateJaccardSimilarity(imgData1, imgData2) {
+      let intersectionPixels = 0;
+      let unionPixels = 0;
+
+      for(let i = 3; i < imgData1.length; i += 4) {
+        const alpha1 = imgData1[i] > 128 ? 1 : 0;
+        const alpha2 = imgData2[i] > 128 ? 1 : 0;
+
+        if (alpha1 || alpha2) {
+          unionPixels++; // Pixel exists in either shape
+
+          if (alpha1 && alpha2) {
+            intersectionPixels++; // Pixel exists in both shapes
+          }
+        }
+      }
+
+      // Jaccard Similarity: intersection / union
+      return unionPixels > 0 ? intersectionPixels / unionPixels : 0;
+    }
+
     function checkSolution() {
       const sol = PUZZLES[puzzleIndex].sol;
 
@@ -975,10 +1002,7 @@
       // --- Comparison Logic ---
 
       // 1. Aspect Ratio / Size Check
-      const wDiff = Math.abs(target.width - current.width);
-      const hDiff = Math.abs(target.height - current.height);
-
-      if (wDiff > target.width * CONFIG.SIZE_TOLERANCE || hDiff > target.height * CONFIG.SIZE_TOLERANCE) {
+      if (!checkShapeDimensions(target.width, target.height, current.width, current.height, CONFIG.SIZE_TOLERANCE)) {
         showNotification("The overall shape dimensions don't match. Check your edges!", 'error');
         return;
       }
@@ -987,27 +1011,7 @@
       const imgData1 = target.ctx.getImageData(0, 0, CONFIG.COMPARE_SIZE, CONFIG.COMPARE_SIZE).data;
       const imgData2 = current.ctx.getImageData(0, 0, CONFIG.COMPARE_SIZE, CONFIG.COMPARE_SIZE).data;
 
-      let intersectionPixels = 0;
-      let unionPixels = 0;
-      let diffPixels = 0;
-
-      for(let i = 3; i < imgData1.length; i += 4) {
-        const alpha1 = imgData1[i] > 128 ? 1 : 0;
-        const alpha2 = imgData2[i] > 128 ? 1 : 0;
-
-        if (alpha1 || alpha2) {
-          unionPixels++; // Pixel exists in either shape
-          
-          if (alpha1 && alpha2) {
-            intersectionPixels++; // Pixel exists in both shapes
-          } else {
-            diffPixels++; // Pixel exists in only one shape
-          }
-        }
-      }
-
-      // Jaccard Similarity: intersection / union
-      const jaccardSimilarity = unionPixels > 0 ? intersectionPixels / unionPixels : 0;
+      const jaccardSimilarity = calculateJaccardSimilarity(imgData1, imgData2);
       
       // Require 97% similarity for a valid solution
       if (jaccardSimilarity >= CONFIG.SIMILARITY_THRESHOLD) {
