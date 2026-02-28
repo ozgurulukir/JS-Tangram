@@ -162,7 +162,7 @@
     let keydownHandler = null; // Track to prevent listener leak
 
     function getPieceVertices(shape) {
-      const def = PIECE_DEFS.find(d => d.id === shape.id());
+      const def = PIECE_DEFS_MAP[shape.id()];
       if (!def) return [];
       const tr = shape.getTransform();
       const pts = [];
