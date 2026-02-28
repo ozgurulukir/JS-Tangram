@@ -269,9 +269,8 @@
       };
     }
 
-    function init() {
+    function setupStage() {
       // Main Stage
-      const container = document.getElementById('game-container');
       stage = new Konva.Stage({
         container: 'game-container',
         width: BOARD_SIZE,
@@ -292,7 +291,9 @@
         mainLayer.add(new Konva.Line({ points: [i, 0, i, BOARD_SIZE], stroke: '#e5e7eb', strokeWidth: 1 }));
         mainLayer.add(new Konva.Line({ points: [0, i, BOARD_SIZE, i], stroke: '#e5e7eb', strokeWidth: 1 }));
       }
+    }
 
+    function setupPreviewStage() {
       // Preview Stage
       previewStage = new Konva.Stage({
         container: 'preview-container',
@@ -301,6 +302,11 @@
       });
       previewLayer = new Konva.Layer();
       previewStage.add(previewLayer);
+    }
+
+    function init() {
+      setupStage();
+      setupPreviewStage();
 
       setupPieces();
 
