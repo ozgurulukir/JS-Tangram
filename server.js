@@ -26,6 +26,8 @@ const logger = {
   }
 };
 
+const fileCache = new Map();
+
 const MIME_TYPES = {
   '.html': 'text/html',
   '.css': 'text/css',
@@ -164,6 +166,15 @@ const server = http.createServer((req, res) => {
   const extname = path.extname(filePath);
   const contentType = MIME_TYPES[extname] || 'application/octet-stream';
 
+  if (fileCache.has(filePath)) {
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=3600'
+    });
+    res.end(fileCache.get(filePath), 'utf-8');
+    return;
+  }
+
   fs.readFile(filePath, (err, content) => {
     if (err) {
       if (err.code === 'ENOENT') {
@@ -174,7 +185,11 @@ const server = http.createServer((req, res) => {
         res.end('500 Internal Server Error: ' + err.code);
       }
     } else {
-      res.writeHead(200, { 'Content-Type': contentType });
+      fileCache.set(filePath, content);
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=3600'
+      });
       res.end(content, 'utf-8');
     }
   });
