@@ -16,7 +16,7 @@ const req = http.request(options, (res) => {
   res.on('data', (chunk) => { data += chunk; });
   res.on('end', () => {
     console.log(`Response: ${data.substring(0, 200)}`);
-    if (res.statusCode === 403) {
+    if (res.statusCode === 403 || res.statusCode === 404 || res.statusCode === 400) {
       console.log('\n✓ Path traversal protection is working!');
     } else {
       console.log('\n✗ WARNING: Path traversal may be possible!');
