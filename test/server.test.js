@@ -132,6 +132,61 @@ test('Static file server', async (t) => {
     assert.strictEqual(response.status, 400);
   });
 
+  await t.test('POST /api/save-level with primitive JSON types (null, numbers, booleans)', async () => {
+    const payloads = ['null', '42', 'true'];
+    for (const payload of payloads) {
+      const response = await fetch(`${baseUrl}/api/save-level`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      });
+      assert.strictEqual(response.status, 400);
+      const data = await response.json();
+
+      // Depending on the primitive type, it may fail JSON.parse (triggering 'Invalid JSON')
+      // or pass JSON.parse but fail schema validation ('Invalid level data...').
+      assert.ok(data.error === 'Invalid JSON' || data.error === 'Invalid level data: missing name or solution');
+    }
+  });
+
+  await t.test('POST /api/save-level with array instead of object', async () => {
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ name: 'Test', sol: {} }])
+    });
+
+    assert.strictEqual(response.status, 400);
+    const data = await response.json();
+    assert.strictEqual(data.error, 'Invalid level data: missing name or solution');
+  });
+
+  await t.test('POST /api/save-level with malformed JSON (missing quote)', async () => {
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"name": "Test", "sol": {T1: {}}}' // missing quotes around T1
+    });
+
+    assert.strictEqual(response.status, 400);
+    const data = await response.json();
+    assert.strictEqual(data.error, 'Invalid JSON');
+  });
+
+  await t.test('POST /api/save-level with payload exceeding MAX_BODY_SIZE', async () => {
+    // Generate a payload larger than 1MB (1024 * 1024 bytes)
+    const largeString = 'a'.repeat(1024 * 1024 + 10);
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: largeString
+    });
+
+    assert.strictEqual(response.status, 413);
+    const data = await response.json();
+    assert.strictEqual(data.error, 'Payload too large');
+  });
+
   await t.test('POST /api/save-level updates existing level with same name', async () => {
     // First save
     const levelData1 = {
@@ -164,6 +219,7 @@ test('Static file server', async (t) => {
     assert.ok(found);
     assert.strictEqual(found.sol.T1.x, 200);
   });
+
 
   // Close the server after tests
   await new Promise((resolve) => {
