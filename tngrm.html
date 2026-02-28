@@ -479,6 +479,14 @@
           handleSnap(shape);
           shape.stroke('#000');
           shape.strokeWidth(3);
+
+          // Ensure shape scale is reset after dragging in case mouseleave was missed
+          shape.to({
+            scaleX: shape.scaleX() > 0 ? 1 : -1,
+            scaleY: 1,
+            duration: 0.1
+          });
+          mainLayer.draw();
         });
 
         shape.on('mouseenter', () => {
