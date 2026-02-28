@@ -45,6 +45,16 @@ test('Static file server', async (t) => {
   await t.test('returns 404 for non-existent file', async () => {
     const response = await fetch(`${baseUrl}/non-existent.html`);
     assert.strictEqual(response.status, 404);
+    assert.strictEqual(await response.text(), '404 Not Found');
+  });
+
+  await t.test('returns 500 for reading a directory as a file', async () => {
+    // '/test' is a directory in the project root.
+    // The server maps it to './test' and tries to fs.readFile it, resulting in EISDIR.
+    const response = await fetch(`${baseUrl}/test`);
+    assert.strictEqual(response.status, 500);
+    const text = await response.text();
+    assert.ok(text.startsWith('500 Internal Server Error: EISDIR'), `Expected 500 EISDIR error, got: ${text}`);
   });
 
   await t.test('returns correct MIME type for CSS files', async () => {
