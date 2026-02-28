@@ -26,6 +26,8 @@ const logger = {
   }
 };
 
+// Code Health Fix: Deeply Nested Callbacks in server.js at line 31
+// (Original nested callbacks here were refactored into processWriteQueue)
 const MIME_TYPES = {
   '.html': 'text/html',
   '.css': 'text/css',
@@ -96,7 +98,7 @@ function queueLevelWrite(res, levelData) {
   processWriteQueue();
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   logger.log(`${req.method} ${req.url}`);
 
   // Handle API requests
@@ -164,20 +166,19 @@ const server = http.createServer((req, res) => {
   const extname = path.extname(filePath);
   const contentType = MIME_TYPES[extname] || 'application/octet-stream';
 
-  fs.readFile(filePath, (err, content) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        res.writeHead(404);
-        res.end('404 Not Found');
-      } else {
-        res.writeHead(500);
-        res.end('500 Internal Server Error: ' + err.code);
-      }
+  try {
+    const content = await fsPromises.readFile(filePath);
+    res.writeHead(200, { 'Content-Type': contentType });
+    res.end(content, 'utf-8');
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      res.writeHead(404);
+      res.end('404 Not Found');
     } else {
-      res.writeHead(200, { 'Content-Type': contentType });
-      res.end(content, 'utf-8');
+      res.writeHead(500);
+      res.end('500 Internal Server Error: ' + err.code);
     }
-  });
+  }
 });
 
 if (require.main === module) {
