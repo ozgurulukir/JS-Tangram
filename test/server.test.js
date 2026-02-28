@@ -236,6 +236,37 @@ test('Static file server', async (t) => {
     assert.strictEqual(data.error, 'Payload too large');
   });
 
+  await t.test('POST /api/save-level handles file write error gracefully', async () => {
+    const levelData = {
+      name: 'Error Test',
+      sol: { T1: { x: 100, y: 100, r: 0, sx: 1 } }
+    };
+
+    // Store the original function
+    const originalWriteFile = fs.promises.writeFile;
+
+    try {
+      // Mock fs.promises.writeFile to throw an error
+      fs.promises.writeFile = async () => {
+        throw new Error('Simulated write error');
+      };
+
+      const response = await fetch(`${baseUrl}/api/save-level`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+        body: JSON.stringify(levelData)
+      });
+
+      assert.strictEqual(response.status, 500);
+      const data = await response.json();
+      assert.strictEqual(data.error, 'Failed to save level');
+      assert.strictEqual(data.details, 'Simulated write error');
+    } finally {
+      // Restore the original function
+      fs.promises.writeFile = originalWriteFile;
+    }
+  });
+
   await t.test('POST /api/save-level updates existing level with same name', async () => {
     // First save
     const levelData1 = {
