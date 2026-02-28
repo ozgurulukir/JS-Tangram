@@ -12,3 +12,5 @@ const PIECE_DEFS = [
   // Parallelogram (Area 2)
   { id: 'PL', type: 'poly', pts: [0, 0, 2, 0, 3, 1, 1, 1], color: '#67e8f9', off: [1.5, 0.5] } // Pastel Cyan
 ];
+
+if (typeof module !== 'undefined') module.exports = { PIECE_DEFS };
