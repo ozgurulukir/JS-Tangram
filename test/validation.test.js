@@ -106,6 +106,13 @@ const mockedScriptContent = scriptContent.replace(
   'global.calculateJaccardSimilarity = function calculateJaccardSimilarity'
 );
 
+const { PIECE_DEFS, PIECE_DEFS_MAP } = require('../js/constants.js');
+const { Mat33 } = require('../js/math.js');
+
+global.PIECE_DEFS = PIECE_DEFS;
+global.PIECE_DEFS_MAP = PIECE_DEFS_MAP;
+global.Mat33 = Mat33;
+
 // Evaluate the script content
 eval(mockedScriptContent);
 
