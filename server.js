@@ -151,7 +151,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    let body = '';
+    const chunks = [];
     let bodySize = 0;
     let tooLarge = false;
     
@@ -165,13 +165,14 @@ const server = http.createServer(async (req, res) => {
         req.destroy();
         return;
       }
-      body += chunk.toString();
+      chunks.push(chunk);
     });
     
     req.on('end', () => {
       if (tooLarge) return;
       
       try {
+        const body = Buffer.concat(chunks).toString('utf8');
         const newLevel = JSON.parse(body);
         
         // Validate required fields
