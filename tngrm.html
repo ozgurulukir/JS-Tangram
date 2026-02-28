@@ -889,18 +889,33 @@
       }
     }
 
+    // --- Cached Offscreen Canvases for checkSolution ---
+    let offscreenTargetCanvas = null;
+    let offscreenTargetCtx = null;
+    let offscreenCurrentCanvas = null;
+    let offscreenCurrentCtx = null;
+
     function checkSolution() {
       const sol = PUZZLES[puzzleIndex].sol;
 
       const compareSize = CONFIG.COMPARE_SIZE;
       const compareCenter = compareSize / 2;
 
+      if (!offscreenTargetCanvas) {
+        offscreenTargetCanvas = document.createElement('canvas');
+        offscreenTargetCanvas.width = compareSize;
+        offscreenTargetCanvas.height = compareSize;
+        offscreenTargetCtx = offscreenTargetCanvas.getContext('2d', { willReadFrequently: true });
+
+        offscreenCurrentCanvas = document.createElement('canvas');
+        offscreenCurrentCanvas.width = compareSize;
+        offscreenCurrentCanvas.height = compareSize;
+        offscreenCurrentCtx = offscreenCurrentCanvas.getContext('2d', { willReadFrequently: true });
+      }
+
       // --- Helper: Draw a set of pieces to a canvas ---
-      function drawStateToCanvas(pieceStates, isSolutionData) {
-        const canvas = document.createElement('canvas');
-        canvas.width = compareSize;
-        canvas.height = compareSize;
-        const ctx = canvas.getContext('2d');
+      function drawStateToCanvas(pieceStates, isSolutionData, canvas, ctx) {
+        ctx.clearRect(0, 0, compareSize, compareSize);
         
         // 1. Calculate Bounding Box
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -969,8 +984,8 @@
         return { canvas, ctx, width, height };
       }
 
-      const target = drawStateToCanvas(sol, true);
-      const current = drawStateToCanvas(currentPieces, false);
+      const target = drawStateToCanvas(sol, true, offscreenTargetCanvas, offscreenTargetCtx);
+      const current = drawStateToCanvas(currentPieces, false, offscreenCurrentCanvas, offscreenCurrentCtx);
 
       // --- Comparison Logic ---
 
