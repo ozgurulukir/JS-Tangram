@@ -202,6 +202,7 @@
   </div>
 
   <script>
+    (() => {
     /**
      * KONVA.JS TANGRAM PUZZLE LOGIC
      */
@@ -1100,6 +1101,10 @@
     }
 
     window.onload = init;
+
+    // Expose openLevelModal globally since it is called from inline HTML event handlers
+    window.openLevelModal = openLevelModal;
+    })();
   </script>
 </body>
 
