@@ -151,7 +151,34 @@ const server = http.createServer((req, res) => {
   }
 
   // Serve static files
-  let filePath = '.' + req.url;
+  // Security: Reject null bytes
+  if (req.url.indexOf('\0') !== -1 || req.url.indexOf('%00') !== -1) {
+    res.writeHead(400, { 'Content-Type': 'text/plain' });
+    res.end('400 Bad Request');
+    return;
+  }
+
+  // Parse URL to separate path from query string/hash
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  } catch (e) {
+    res.writeHead(400, { 'Content-Type': 'text/plain' });
+    res.end('400 Bad Request');
+    return;
+  }
+
+  // Decode URI component to handle encoded paths like %2e%2e
+  let decodedPath;
+  try {
+    decodedPath = decodeURIComponent(parsedUrl.pathname);
+  } catch (e) {
+    res.writeHead(400, { 'Content-Type': 'text/plain' });
+    res.end('400 Bad Request');
+    return;
+  }
+
+  let filePath = '.' + decodedPath;
   if (filePath === './') {
     filePath = './tngrm.html';
   }
@@ -159,10 +186,11 @@ const server = http.createServer((req, res) => {
   // Security: Normalize path and prevent directory traversal
   const normalizedPath = path.normalize(filePath);
   const rootDir = path.resolve(__dirname);
+  const rootDirWithSep = rootDir + path.sep;
   const resolvedPath = path.resolve(normalizedPath);
   
-  // Ensure the resolved path is within the project root
-  if (!resolvedPath.startsWith(rootDir)) {
+  // Ensure the resolved path is strictly within the project root
+  if (!resolvedPath.startsWith(rootDirWithSep) && resolvedPath !== rootDir) {
     res.writeHead(403, { 'Content-Type': 'text/plain' });
     res.end('403 Forbidden: Access denied');
     return;
