@@ -626,10 +626,14 @@
         sol: solution
       };
 
+      const token = prompt('Enter API Token to save the level:');
+      if (token === null) return;
+
       fetch('/api/save-level', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(levelData)
       })

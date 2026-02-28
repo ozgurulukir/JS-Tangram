@@ -67,7 +67,7 @@ test('Static file server', async (t) => {
     assert.ok([403, 404].includes(response.status));
   });
 
-  await t.test('POST /api/save-level with valid data', async () => {
+  await t.test('POST /api/save-level with missing authorization header', async () => {
     const levelData = {
       name: 'Test Level',
       sol: {
@@ -81,6 +81,44 @@ test('Static file server', async (t) => {
       body: JSON.stringify(levelData)
     });
 
+    assert.strictEqual(response.status, 401);
+    const data = await response.json();
+    assert.strictEqual(data.error, 'Unauthorized');
+  });
+
+  await t.test('POST /api/save-level with invalid authorization token', async () => {
+    const levelData = {
+      name: 'Test Level',
+      sol: {
+        T1: { x: 100, y: 100, r: 0, sx: 1 }
+      }
+    };
+
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer wrong-token' },
+      body: JSON.stringify(levelData)
+    });
+
+    assert.strictEqual(response.status, 401);
+    const data = await response.json();
+    assert.strictEqual(data.error, 'Unauthorized');
+  });
+
+  await t.test('POST /api/save-level with valid data', async () => {
+    const levelData = {
+      name: 'Test Level',
+      sol: {
+        T1: { x: 100, y: 100, r: 0, sx: 1 }
+      }
+    };
+
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      body: JSON.stringify(levelData)
+    });
+
     assert.strictEqual(response.status, 200);
     const data = await response.json();
     assert.strictEqual(data.success, true);
@@ -89,7 +127,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with invalid JSON', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
       body: 'invalid json'
     });
 
@@ -101,7 +139,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with missing name field', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
       body: JSON.stringify({ sol: { T1: { x: 0, y: 0 } } }) // missing name
     });
 
@@ -113,7 +151,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with missing sol field', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
       body: JSON.stringify({ name: 'Test' }) // missing sol
     });
 
@@ -125,7 +163,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with empty body', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
       body: ''
     });
 
@@ -140,7 +178,7 @@ test('Static file server', async (t) => {
     };
     await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
       body: JSON.stringify(levelData1)
     });
 
@@ -151,7 +189,7 @@ test('Static file server', async (t) => {
     };
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
       body: JSON.stringify(levelData2)
     });
 

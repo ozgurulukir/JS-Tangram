@@ -8,6 +8,7 @@ const path = require('path');
 const PORT = 8080;
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 const DEBUG = process.env.NODE_ENV === 'development';
+const API_TOKEN = process.env.API_TOKEN || 'admin-token';
 
 // Logger utility - suppresses logs in production
 const logger = {
@@ -101,6 +102,14 @@ const server = http.createServer((req, res) => {
 
   // Handle API requests
   if (req.url === '/api/save-level' && req.method === 'POST') {
+    // Security: Require authentication to save levels
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${API_TOKEN}`) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+
     let body = '';
     let bodySize = 0;
     let tooLarge = false;
