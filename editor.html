@@ -411,27 +411,38 @@
     function handleSnap(shape) {
       let snapped = false;
       const thisPts = getPieceVertices(shape);
-      let best = { dist: Infinity, dx: 0, dy: 0 };
 
-      currentPieces.forEach(p => {
-        if (p === shape) return;
+      let bestDistSq = Infinity;
+      let bestDx = 0;
+      let bestDy = 0;
+      const magnetSq = MAGNET * MAGNET;
+
+      for (let i = 0; i < currentPieces.length; i++) {
+        const p = currentPieces[i];
+        if (p === shape) continue;
+
         const otherPts = getPieceVertices(p);
-        thisPts.forEach(tp => {
-          otherPts.forEach(op => {
+        for (let j = 0; j < thisPts.length; j++) {
+          const tp = thisPts[j];
+          for (let k = 0; k < otherPts.length; k++) {
+            const op = otherPts[k];
             const dx = op.x - tp.x;
             const dy = op.y - tp.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < MAGNET && dist < best.dist) {
-              best = { dist, dx, dy };
-            }
-          });
-        });
-      });
+            const distSq = dx * dx + dy * dy;
 
-      if (best.dist < MAGNET) {
+            if (distSq < magnetSq && distSq < bestDistSq) {
+              bestDistSq = distSq;
+              bestDx = dx;
+              bestDy = dy;
+            }
+          }
+        }
+      }
+
+      if (bestDistSq < magnetSq) {
         shape.position({
-          x: shape.x() + best.dx,
-          y: shape.y() + best.dy
+          x: shape.x() + bestDx,
+          y: shape.y() + bestDy
         });
         snapped = true;
       }
