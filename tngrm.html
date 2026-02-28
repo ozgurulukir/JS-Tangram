@@ -483,9 +483,8 @@
 
         shape.on('mouseenter', () => {
           document.body.style.cursor = 'grab';
-          if (shape === selectedPiece) return;
           shape.to({
-            scaleX: shape.scaleX() * 1.05,
+            scaleX: shape.scaleX() > 0 ? 1.05 : -1.05,
             scaleY: 1.05,
             duration: 0.1
           });
@@ -494,7 +493,6 @@
 
         shape.on('mouseleave', () => {
           document.body.style.cursor = 'default';
-          if (shape === selectedPiece) return;
           shape.to({
             scaleX: shape.scaleX() > 0 ? 1 : -1,
             scaleY: 1,
