@@ -1,0 +1,29 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "A relaxing, web-based implementation of the classic Tangram puzzle game, featuring a built-in level editor.",
+  "main": "server.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "node --test test/*.js",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ozgurulukir/JS-Tangram.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ozgurulukir/JS-Tangram/issues"
+  },
+  "homepage": "https://github.com/ozgurulukir/JS-Tangram#readme",
+  "devDependencies": {
+    "eslint": "^10.0.2",
+    "jest": "^30.2.0"
+  }
+}
