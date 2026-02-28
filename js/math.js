@@ -43,4 +43,31 @@ const Mat33 = {
   }
 };
 
-if (typeof module !== 'undefined') module.exports = { Mat33 };
+const MathUtils = {
+  getClosestSnap: (thisPts, otherPts, magnetSq, currentBestDistSq = Infinity) => {
+    let bestDistSq = currentBestDistSq;
+    let bestDx = 0;
+    let bestDy = 0;
+    let found = false;
+
+    for (let j = 0; j < thisPts.length; j++) {
+      const tp = thisPts[j];
+      for (let k = 0; k < otherPts.length; k++) {
+        const op = otherPts[k];
+        const dx = op.x - tp.x;
+        const dy = op.y - tp.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq < magnetSq && distSq < bestDistSq) {
+          bestDistSq = distSq;
+          bestDx = dx;
+          bestDy = dy;
+          found = true;
+        }
+      }
+    }
+    return found ? { distSq: bestDistSq, dx: bestDx, dy: bestDy } : null;
+  }
+};
+
+if (typeof module !== 'undefined') module.exports = { Mat33, MathUtils };
