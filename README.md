@@ -1,6 +1,6 @@
 # Zen Tangram [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A relaxing, web-based implementation of the classic Tangram puzzle game, featuring a built-in level editor.
+A relaxing, web-based implementation of the classic Tangram puzzle game, featuring a built-in level editor. Playable in Turkish.
 
 ## 🎮 Gameplay
 
