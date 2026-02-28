@@ -13,4 +13,9 @@ const PIECE_DEFS = [
   { id: 'PL', type: 'poly', pts: [0, 0, 2, 0, 3, 1, 1, 1], color: '#67e8f9', off: [1.5, 0.5] } // Pastel Cyan
 ];
 
-if (typeof module !== 'undefined') module.exports = { PIECE_DEFS };
+const PIECE_DEFS_MAP = {};
+PIECE_DEFS.forEach(def => {
+  PIECE_DEFS_MAP[def.id] = def;
+});
+
+if (typeof module !== 'undefined') module.exports = { PIECE_DEFS, PIECE_DEFS_MAP };

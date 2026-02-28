@@ -239,7 +239,7 @@
     let keydownHandler = null; // Track keydown listener to prevent leak
 
     function getPieceVertices(shape) {
-      const def = PIECE_DEFS.find(d => d.id === shape.id());
+      const def = PIECE_DEFS_MAP[shape.id()];
       if (!def) return [];
       const tr = shape.getTransform();
       const pts = [];
@@ -650,7 +650,7 @@
       const group = new Konva.Group();
 
       Object.entries(p.sol).forEach(([id, s]) => {
-        const def = PIECE_DEFS.find(d => d.id === id);
+        const def = PIECE_DEFS_MAP[id];
         // Use s directly as it now comes from JSON without the "config" wrapper
         // unless we wrapped it in JSON (which we didn't in my previous Write)
         const config = s; 
@@ -888,7 +888,7 @@
             };
           }
 
-          const def = PIECE_DEFS.find(d => d.id === id);
+          const def = PIECE_DEFS_MAP[id];
           if (!def) return;
 
           // Calculate vertices manually using Mat33
