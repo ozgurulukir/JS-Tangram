@@ -366,20 +366,11 @@
         if (p === shape) continue;
 
         const otherPts = getPieceVertices(p);
-        for (let j = 0; j < thisPts.length; j++) {
-          const tp = thisPts[j];
-          for (let k = 0; k < otherPts.length; k++) {
-            const op = otherPts[k];
-            const dx = op.x - tp.x;
-            const dy = op.y - tp.y;
-            const distSq = dx * dx + dy * dy;
-
-            if (distSq < magnetSq && distSq < bestDistSq) {
-              bestDistSq = distSq;
-              bestDx = dx;
-              bestDy = dy;
-            }
-          }
+        const snap = MathUtils.getClosestSnap(thisPts, otherPts, magnetSq, bestDistSq);
+        if (snap) {
+          bestDistSq = snap.distSq;
+          bestDx = snap.dx;
+          bestDy = snap.dy;
         }
       }
 
