@@ -42,6 +42,7 @@ const MIME_TYPES = {
 // File lock to prevent race conditions
 let fileWriteLock = false;
 const writeQueue = [];
+let cachedLevels = null;
 
 async function processWriteQueue() {
   if (fileWriteLock || writeQueue.length === 0) return;
@@ -52,29 +53,31 @@ async function processWriteQueue() {
   try {
     const levelsPath = path.join(__dirname, 'levels.json');
     
-    // Read current levels
-    let levels = [];
-    try {
-      const data = await fsPromises.readFile(levelsPath, 'utf8');
-      if (data) {
-        levels = JSON.parse(data);
-      }
-    } catch (err) {
-      if (err.code !== 'ENOENT') {
-        logger.error('Error reading levels.json:', err);
+    // Read current levels if not cached
+    if (cachedLevels === null) {
+      cachedLevels = [];
+      try {
+        const data = await fsPromises.readFile(levelsPath, 'utf8');
+        if (data) {
+          cachedLevels = JSON.parse(data);
+        }
+      } catch (err) {
+        if (err.code !== 'ENOENT') {
+          logger.error('Error reading levels.json:', err);
+        }
       }
     }
     
     // Check if level with same name exists, update it, otherwise add new
-    const existingIndex = levels.findIndex(l => l.name === levelData.name);
+    const existingIndex = cachedLevels.findIndex(l => l.name === levelData.name);
     if (existingIndex >= 0) {
-      levels[existingIndex] = levelData;
+      cachedLevels[existingIndex] = levelData;
     } else {
-      levels.push(levelData);
+      cachedLevels.push(levelData);
     }
     
     // Write updated levels
-    await fsPromises.writeFile(levelsPath, JSON.stringify(levels, null, 2), 'utf8');
+    await fsPromises.writeFile(levelsPath, JSON.stringify(cachedLevels, null, 2), 'utf8');
     
     if (!res.headersSent) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
