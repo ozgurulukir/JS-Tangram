@@ -42,14 +42,53 @@ const MIME_TYPES = {
 let fileWriteLock = false;
 const writeQueue = [];
 
+// Implement an exponential backoff for file locking
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function acquireFileLock(lockPath, maxRetries = 100) {
+  let retries = 0;
+  while (retries < maxRetries) {
+    try {
+      // 'wx' flag throws an error if the file already exists (atomic operation)
+      const fh = await fsPromises.open(lockPath, 'wx');
+      await fh.close();
+      return true;
+    } catch (e) {
+      if (e.code === 'EEXIST') {
+        retries++;
+        await sleep(10 * Math.pow(1.2, Math.min(retries, 15))); // Backoff
+      } else {
+        throw e;
+      }
+    }
+  }
+  throw new Error('Failed to acquire file lock after maximum retries');
+}
+
+async function releaseFileLock(lockPath) {
+  try {
+    await fsPromises.unlink(lockPath);
+  } catch (e) {
+    if (e.code !== 'ENOENT') {
+      logger.error('Error releasing file lock:', e);
+    }
+  }
+}
+
 async function processWriteQueue() {
   if (fileWriteLock || writeQueue.length === 0) return;
   
   fileWriteLock = true;
   const { res, levelData } = writeQueue.shift();
+  const levelsPath = path.join(__dirname, 'levels.json');
+  const lockPath = levelsPath + '.lock';
+
+  let lockAcquired = false;
   
   try {
-    const levelsPath = path.join(__dirname, 'levels.json');
+    // Acquire cross-process file lock
+    await acquireFileLock(lockPath);
+    lockAcquired = true;
     
     // Read current levels
     let levels = [];
@@ -61,6 +100,7 @@ async function processWriteQueue() {
     } catch (err) {
       if (err.code !== 'ENOENT') {
         logger.error('Error reading levels.json:', err);
+        throw new Error('Failed to read existing levels: ' + err.message);
       }
     }
     
@@ -72,8 +112,10 @@ async function processWriteQueue() {
       levels.push(levelData);
     }
     
-    // Write updated levels
-    await fsPromises.writeFile(levelsPath, JSON.stringify(levels, null, 2), 'utf8');
+    // Write updated levels atomically
+    const tempPath = levelsPath + '.tmp.' + Date.now() + Math.random().toString(36).substring(2);
+    await fsPromises.writeFile(tempPath, JSON.stringify(levels, null, 2), 'utf8');
+    await fsPromises.rename(tempPath, levelsPath);
     
     if (!res.headersSent) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -86,6 +128,9 @@ async function processWriteQueue() {
       res.end(JSON.stringify({ error: 'Failed to save level', details: err.message }));
     }
   } finally {
+    if (lockAcquired) {
+      await releaseFileLock(lockPath);
+    }
     fileWriteLock = false;
     processWriteQueue(); // Process next in queue
   }
