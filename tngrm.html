@@ -794,7 +794,7 @@
         const config = s;
         p.to({
           x: config.x, y: config.y, rotation: config.r, scaleX: config.sx,
-          duration: CONFIG.ANIMATION_REVEAL_DURATION * 1000, easing: Konva.Easings.EaseInOut
+          duration: CONFIG.ANIMATION_REVEAL_DURATION, easing: Konva.Easings.EaseInOut
         });
       });
     }
@@ -807,8 +807,8 @@
         return ((rot % 360) + 360) % 360;
       }
       
-      // Find a piece that is not in its correct position
-      const misplaced = currentPieces.find(p => {
+      // Find all pieces that are not in their correct positions
+      const misplacedPieces = currentPieces.filter(p => {
         const s = sol[p.id()];
         const dx = Math.abs(p.x() - s.x);
         const dy = Math.abs(p.y() - s.y);
@@ -820,11 +820,13 @@
         return dx > CONFIG.SNAP_THRESHOLD || dy > CONFIG.SNAP_THRESHOLD || rotationDiff > CONFIG.SNAP_THRESHOLD || dsx > CONFIG.SCALE_THRESHOLD;
       });
 
-      if (misplaced) {
+      if (misplacedPieces.length > 0) {
+        // Pick a random misplaced piece
+        const misplaced = misplacedPieces[Math.floor(Math.random() * misplacedPieces.length)];
         const s = sol[misplaced.id()];
         misplaced.to({
           x: s.x, y: s.y, rotation: s.r, scaleX: s.sx,
-          duration: CONFIG.ANIMATION_HINT_DURATION * 1000, easing: Konva.Easings.EaseInOut,
+          duration: CONFIG.ANIMATION_HINT_DURATION, easing: Konva.Easings.EaseInOut,
           onFinish: () => {
             misplaced.stroke('#f59e0b');
             misplaced.strokeWidth(5);
