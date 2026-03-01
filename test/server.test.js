@@ -301,6 +301,31 @@ test('Static file server', async (t) => {
   });
 
 
+
+  await t.test('returns 500 Internal Server Error when file read fails with non-ENOENT error', async () => {
+    // Store the original function
+    const originalReadFile = fs.promises.readFile;
+
+    try {
+      // Mock fs.promises.readFile to throw an EACCES error
+      fs.promises.readFile = async () => {
+        const error = new Error('Permission denied');
+        error.code = 'EACCES';
+        throw error;
+      };
+
+      // Request a file that we haven't requested yet to bypass the static cache in server.js
+      const response = await fetch(`${baseUrl}/js/math.js`);
+
+      assert.strictEqual(response.status, 500);
+      const text = await response.text();
+      assert.strictEqual(text, '500 Internal Server Error: EACCES');
+    } finally {
+      // Restore the original function
+      fs.promises.readFile = originalReadFile;
+    }
+  });
+
   // Close the server after tests
   await new Promise((resolve) => {
     server.close(resolve);
