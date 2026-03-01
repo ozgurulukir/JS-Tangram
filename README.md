@@ -2,6 +2,10 @@
 
 A relaxing, web-based implementation of the classic Tangram puzzle game, featuring a built-in level editor. Playable in Turkish.
 
+![Game Screenshot](screenshot/game.png)
+![Editor Screenshot](screenshot/editor.png)
+![Game Gameplay](screenshot/game.gif)
+
 ## 🎮 Gameplay
 
 **Objective:** Arrange all 7 pieces (tans) to perfectly match the target silhouette without overlapping.
