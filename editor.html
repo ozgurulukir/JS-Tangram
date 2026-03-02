@@ -155,6 +155,12 @@
     const UNIT = CONFIG.UNIT;
     const MAGNET = CONFIG.MAGNET;
 
+    // Pre-calculate scaled coordinates to avoid repeated multiplications
+    PIECE_DEFS.forEach(def => {
+      def.scaledPts = def.pts.map(p => p * UNIT);
+      def.scaledOff = [def.off[0] * UNIT, def.off[1] * UNIT];
+    });
+
     let PUZZLES = [];
     let stage, mainLayer, currentPieces = [];
     let selectedPiece = null;
@@ -162,16 +168,19 @@
     let keydownHandler = null; // Track to prevent listener leak
 
     function getPieceVertices(shape) {
+      if (shape._cachedVertices) return shape._cachedVertices;
+
       const def = PIECE_DEFS_MAP[shape.id()];
       if (!def) return [];
       const tr = shape.getTransform();
       const pts = [];
-      for (let i = 0; i < def.pts.length; i += 2) {
-        pts.push(tr.point({
-          x: def.pts[i] * UNIT,
-          y: def.pts[i + 1] * UNIT
-        }));
+
+      for (let i = 0; i < def.scaledPts.length; i += 2) {
+        const x = def.scaledPts[i];
+        const y = def.scaledPts[i + 1];
+        pts.push(tr.point({ x, y }));
       }
+      shape._cachedVertices = pts;
       return pts;
     }
 
@@ -294,7 +303,7 @@
       PIECE_DEFS.forEach((def, i) => {
         const initPos = getInitialPosition(i);
         const shape = new Konva.Line({
-          points: def.pts.map(p => p * UNIT),
+          points: def.scaledPts,
           fill: def.color,
           stroke: '#444',
           strokeWidth: 2,
@@ -302,7 +311,7 @@
           draggable: true,
           id: def.id,
           name: 'piece',
-          offset: { x: def.off[0] * UNIT, y: def.off[1] * UNIT },
+          offset: { x: def.scaledOff[0], y: def.scaledOff[1] },
           x: initPos.x,
           y: initPos.y,
           shadowColor: 'rgba(0,0,0,0.1)',
@@ -317,7 +326,14 @@
           shape.shadowOpacity(0.3).shadowOffset({ x: 10, y: 10 });
         });
 
-        shape.on('dragend', () => handleSnap(shape));
+        shape.on('dragmove', () => {
+          shape._cachedVertices = null;
+        });
+
+        shape.on('dragend', () => {
+          shape._cachedVertices = null;
+          handleSnap(shape);
+        });
 
         shape.on('click tap', (e) => {
           e.cancelBubble = true;
@@ -331,6 +347,7 @@
         // Handle double-click for desktop
         shape.on('dblclick', () => {
           shape.rotation(shape.rotation() + ROTATION_STEP);
+          shape._cachedVertices = null;
           mainLayer.draw();
         });
         
@@ -341,6 +358,7 @@
           if (now - lastTapTime < 300 && now - lastTapTime > 50) {
             // Double tap detected (between 50ms and 300ms)
             shape.rotation(shape.rotation() + ROTATION_STEP);
+            shape._cachedVertices = null;
             mainLayer.draw();
             e.cancelBubble = true;
           }
@@ -394,14 +412,19 @@
           x: shape.x() + bestDx,
           y: shape.y() + bestDy
         });
+        shape._cachedVertices = null;
         snapped = true;
       }
 
       if (!snapped) {
-        shape.position({
-          x: Math.round(shape.x() / SNAP_COORD) * SNAP_COORD,
-          y: Math.round(shape.y() / SNAP_COORD) * SNAP_COORD
-        });
+        const oldX = shape.x();
+        const oldY = shape.y();
+        const newX = Math.round(oldX / SNAP_COORD) * SNAP_COORD;
+        const newY = Math.round(oldY / SNAP_COORD) * SNAP_COORD;
+        if (oldX !== newX || oldY !== newY) {
+          shape.position({ x: newX, y: newY });
+          shape._cachedVertices = null;
+        }
       }
 
       shape.shadowOpacity(0.1).shadowOffset({ x: 3, y: 3 });
@@ -460,7 +483,9 @@
                   y: s.y,
                   rotation: s.r,
                   scaleX: s.sx,
-                  duration: 0.5
+                  duration: 0.5,
+                  onUpdate: () => { piece._cachedVertices = null; },
+                  onFinish: () => { piece._cachedVertices = null; }
               });
           }
       });
@@ -470,18 +495,21 @@
       document.getElementById('rotate-left-btn').onclick = () => {
         if (!selectedPiece) return;
         selectedPiece.rotation(selectedPiece.rotation() - ROTATION_STEP);
+        selectedPiece._cachedVertices = null;
         mainLayer.draw();
       };
 
       document.getElementById('rotate-right-btn').onclick = () => {
         if (!selectedPiece) return;
         selectedPiece.rotation(selectedPiece.rotation() + ROTATION_STEP);
+        selectedPiece._cachedVertices = null;
         mainLayer.draw();
       };
 
       document.getElementById('flip-btn').onclick = () => {
         if (!selectedPiece) return;
         selectedPiece.scaleX(selectedPiece.scaleX() * -1);
+        selectedPiece._cachedVertices = null;
         mainLayer.draw();
       };
 
@@ -493,6 +521,7 @@
           p.rotation(0);
           p.scaleX(1);
           p.position(getInitialPosition(i));
+          p._cachedVertices = null;
         });
         mainLayer.draw();
       };
@@ -507,13 +536,17 @@
       keydownHandler = (e) => {
         if (!selectedPiece) return;
         const dist = e.shiftKey ? CONFIG.KEYBOARD_DIST_SHIFT : CONFIG.KEYBOARD_DIST_NORMAL;
+        let moved = false;
         switch (e.key) {
-          case 'ArrowLeft': case 'a': selectedPiece.x(selectedPiece.x() - dist); break;
-          case 'ArrowRight': case 'd': selectedPiece.x(selectedPiece.x() + dist); break;
-          case 'ArrowUp': case 'w': selectedPiece.y(selectedPiece.y() - dist); break;
-          case 'ArrowDown': case 's': selectedPiece.y(selectedPiece.y() + dist); break;
+          case 'ArrowLeft': case 'a': selectedPiece.x(selectedPiece.x() - dist); moved = true; break;
+          case 'ArrowRight': case 'd': selectedPiece.x(selectedPiece.x() + dist); moved = true; break;
+          case 'ArrowUp': case 'w': selectedPiece.y(selectedPiece.y() - dist); moved = true; break;
+          case 'ArrowDown': case 's': selectedPiece.y(selectedPiece.y() + dist); moved = true; break;
         }
-        mainLayer.draw();
+        if (moved) {
+          selectedPiece._cachedVertices = null;
+          mainLayer.draw();
+        }
       };
 
       document.addEventListener('keydown', keydownHandler);
