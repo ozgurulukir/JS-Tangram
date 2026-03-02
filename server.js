@@ -254,7 +254,7 @@ const server = http.createServer(async (req, res) => {
   const SENSITIVE_FILES = [
     'server.js', 'package.json', 'package-lock.json', '.env', '.git',
     'test', 'test_dir', 'README.md', 'LICENSE', 'benchmark.js',
-    'benchmark2.js', 'test_canvas.js'
+    'benchmark2.js'
   ];
 
   if (!MIME_TYPES[extname] || baseName.startsWith('.') || SENSITIVE_FILES.includes(topLevel)) {
