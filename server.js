@@ -8,7 +8,12 @@ const path = require('path');
 const PORT = 8080;
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 const DEBUG = process.env.NODE_ENV === 'development';
-const API_TOKEN = process.env.API_TOKEN || 'admin-token';
+const API_TOKEN = process.env.API_TOKEN;
+
+if (!API_TOKEN) {
+  console.error('CRITICAL: API_TOKEN environment variable is not set.');
+  process.exit(1);
+}
 
 // Logger utility - suppresses logs in production
 const logger = {

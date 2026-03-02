@@ -3,6 +3,8 @@ const assert = require('node:assert');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+
+process.env.API_TOKEN = 'test-token';
 const server = require('../server.js');
 
 test('Static file server', async (t) => {
@@ -126,7 +128,7 @@ test('Static file server', async (t) => {
 
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.API_TOKEN}` },
       body: JSON.stringify(levelData)
     });
 
@@ -138,7 +140,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with invalid JSON', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.API_TOKEN}` },
       body: 'invalid json'
     });
 
@@ -150,7 +152,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with missing name field', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.API_TOKEN}` },
       body: JSON.stringify({ sol: { T1: { x: 0, y: 0 } } }) // missing name
     });
 
@@ -162,7 +164,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with missing sol field', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.API_TOKEN}` },
       body: JSON.stringify({ name: 'Test' }) // missing sol
     });
 
@@ -174,7 +176,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with empty body', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.API_TOKEN}` },
       body: ''
     });
 
@@ -186,7 +188,7 @@ test('Static file server', async (t) => {
     for (const payload of payloads) {
       const response = await fetch(`${baseUrl}/api/save-level`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.API_TOKEN}` },
         body: payload
       });
       assert.strictEqual(response.status, 400);
@@ -201,7 +203,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with array instead of object', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.API_TOKEN}` },
       body: JSON.stringify([{ name: 'Test', sol: {} }])
     });
 
@@ -213,7 +215,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with malformed JSON (missing quote)', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.API_TOKEN}` },
       body: '{"name": "Test", "sol": {T1: {}}}' // missing quotes around T1
     });
 
@@ -227,7 +229,7 @@ test('Static file server', async (t) => {
     const largeString = 'a'.repeat(1024 * 1024 + 10);
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.API_TOKEN}` },
       body: largeString
     });
 
@@ -253,7 +255,7 @@ test('Static file server', async (t) => {
 
       const response = await fetch(`${baseUrl}/api/save-level`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.API_TOKEN}` },
         body: JSON.stringify(levelData)
       });
 
@@ -275,7 +277,7 @@ test('Static file server', async (t) => {
     };
     await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.API_TOKEN}` },
       body: JSON.stringify(levelData1)
     });
 
@@ -286,7 +288,7 @@ test('Static file server', async (t) => {
     };
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.API_TOKEN}` },
       body: JSON.stringify(levelData2)
     });
 
