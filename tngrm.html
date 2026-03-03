@@ -813,16 +813,13 @@
       let unionPixels = 0;
 
       for(let i = 3; i < imgData1.length; i += 4) {
-        const alpha1 = imgData1[i] > 128 ? 1 : 0;
-        const alpha2 = imgData2[i] > 128 ? 1 : 0;
+        // Optimized: avoid branching and ternary operators
+        // (128 - v) >>> 31 is equivalent to (v > 128 ? 1 : 0)
+        const a1 = (128 - imgData1[i]) >>> 31;
+        const a2 = (128 - imgData2[i]) >>> 31;
 
-        if (alpha1 || alpha2) {
-          unionPixels++; // Pixel exists in either shape
-
-          if (alpha1 && alpha2) {
-            intersectionPixels++; // Pixel exists in both shapes
-          }
-        }
+        unionPixels += (a1 | a2);
+        intersectionPixels += (a1 & a2);
       }
 
       // Jaccard Similarity: intersection / union
