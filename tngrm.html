@@ -172,6 +172,7 @@
 
   <script src="js/constants.js"></script>
   <script src="js/math.js"></script>
+  <script src="js/ui.js"></script>
   <script>
     (() => {
     /**
@@ -355,47 +356,8 @@
         }
         
         // Show user-friendly error notification
-        showNotification(errorMessage, 'error');
+        UIUtils.showNotification(errorMessage, 'error', CONFIG.NOTIFICATION_DURATION);
       }
-    }
-
-    function showNotification(message, type = 'info') {
-      // Create or get existing notification element
-      let notification = document.getElementById('notification');
-      if (!notification) {
-        notification = document.createElement('div');
-        notification.id = 'notification';
-        notification.style.cssText = `
-          position: fixed;
-          top: 20px;
-          right: 20px;
-          padding: 16px 24px;
-          border-radius: 12px;
-          font-weight: 600;
-          font-size: 14px;
-          z-index: 10000;
-          transform: translateX(400px);
-          transition: transform 0.3s ease-out;
-          max-width: 400px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        `;
-        document.body.appendChild(notification);
-      }
-      
-      const bgColor = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#6366f1';
-      notification.style.backgroundColor = bgColor;
-      notification.style.color = 'white';
-      notification.textContent = message;
-      
-      // Animate in
-      requestAnimationFrame(() => {
-        notification.style.transform = 'translateX(0)';
-      });
-      
-      // Auto dismiss after 5 seconds
-      setTimeout(() => {
-        notification.style.transform = 'translateX(400px)';
-      }, CONFIG.NOTIFICATION_DURATION);
     }
 
     function fitToContainer() {
@@ -962,7 +924,7 @@
 
       // 1. Aspect Ratio / Size Check
       if (!checkShapeDimensions(target.width, target.height, current.width, current.height, CONFIG.SIZE_TOLERANCE)) {
-        showNotification("The overall shape dimensions don't match. Check your edges!", 'error');
+        UIUtils.showNotification("The overall shape dimensions don't match. Check your edges!", 'error', CONFIG.NOTIFICATION_DURATION);
         return;
       }
 
@@ -981,7 +943,7 @@
         const seconds = (secondsElapsed % 60).toString().padStart(2, '0');
         document.getElementById('win-time').textContent = `${minutes}:${seconds}`;
 
-        showNotification('Perfect match! Puzzle solved! 🎉', 'success');
+        UIUtils.showNotification('Perfect match! Puzzle solved! 🎉', 'success', CONFIG.NOTIFICATION_DURATION);
         
         setTimeout(() => {
           document.getElementById('win-overlay').classList.add('active');
@@ -989,7 +951,7 @@
       } else {
         const mismatchPercent = ((1 - jaccardSimilarity) * 100).toFixed(1);
         logger.log(`Shape mismatch: ${(jaccardSimilarity * 100).toFixed(2)}% similar, ${mismatchPercent}% different`);
-        showNotification(`Not quite! ${mismatchPercent}% mismatch. Keep trying!`, 'error');
+        UIUtils.showNotification(`Not quite! ${mismatchPercent}% mismatch. Keep trying!`, 'error', CONFIG.NOTIFICATION_DURATION);
       }
     }
 

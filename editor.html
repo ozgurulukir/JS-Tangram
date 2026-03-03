@@ -110,6 +110,7 @@
 
   <script src="js/constants.js"></script>
   <script src="js/math.js"></script>
+  <script src="js/ui.js"></script>
   <script>
   (() => {
     /**
@@ -250,44 +251,8 @@
       } catch (err) {
         clearTimeout(timeoutId);
         logger.error('Error loading puzzles:', err);
-        showNotification('Failed to load levels. Please ensure the server is running.', 'error');
+        UIUtils.showNotification('Failed to load levels. Please ensure the server is running.', 'error', CONFIG.NOTIFICATION_DURATION);
       }
-    }
-
-    function showNotification(message, type = 'info') {
-      let notification = document.getElementById('notification');
-      if (!notification) {
-        notification = document.createElement('div');
-        notification.id = 'notification';
-        notification.style.cssText = `
-          position: fixed;
-          top: 20px;
-          right: 20px;
-          padding: 16px 24px;
-          border-radius: 12px;
-          font-weight: 600;
-          font-size: 14px;
-          z-index: 10000;
-          transform: translateX(400px);
-          transition: transform 0.3s ease-out;
-          max-width: 400px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        `;
-        document.body.appendChild(notification);
-      }
-      
-      const bgColor = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#6366f1';
-      notification.style.backgroundColor = bgColor;
-      notification.style.color = 'white';
-      notification.textContent = message;
-      
-      requestAnimationFrame(() => {
-        notification.style.transform = 'translateX(0)';
-      });
-      
-      setTimeout(() => {
-        notification.style.transform = 'translateX(400px)';
-      }, CONFIG.NOTIFICATION_DURATION);
     }
 
     function fitToContainer() {
