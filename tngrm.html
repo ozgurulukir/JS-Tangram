@@ -261,6 +261,15 @@
       return pts;
     }
 
+    /**
+     * Cache piece vertices and bounding boxes to optimize performance during drag operations.
+     * Caching stationary pieces avoids redundant matrix multiplications and AABB calculations.
+     */
+    function updatePieceCache(shape) {
+      shape._cachedVertices = getPieceVertices(shape);
+      shape._cachedClientRect = shape.getClientRect();
+    }
+
     function getInitialPosition(index) {
       // Scatter pieces around the board
       const cols = 4;
@@ -394,6 +403,11 @@
           select(shape);
           shape.moveToTop(); // Bring to front when dragging starts
           shape.shadowOpacity(0.3).shadowOffset({ x: 10, y: 10 });
+
+          // Performance: Cache all pieces on dragstart to avoid redundant calculations during dragmove
+          for (let i = 0; i < currentPieces.length; i++) {
+            updatePieceCache(currentPieces[i]);
+          }
         });
 
         shape.on('dragmove', () => {
@@ -412,7 +426,8 @@
             const p = currentPieces[i];
             if (p === shape) continue;
 
-            const otherBox = p.getClientRect();
+            // Performance: Use cached vertices and AABB for stationary pieces
+            const otherBox = p._cachedClientRect;
             if (minX > otherBox.x + otherBox.width ||
                 maxX < otherBox.x ||
                 minY > otherBox.y + otherBox.height ||
@@ -420,7 +435,7 @@
               continue;
             }
 
-            const otherPts = getPieceVertices(p);
+            const otherPts = p._cachedVertices;
             const snap = MathUtils.getClosestSnap(thisPts, otherPts, magnetSq);
             if (snap) {
               nearby = true;
@@ -517,7 +532,8 @@
         const p = currentPieces[i];
         if (p === shape) continue;
 
-        const otherPts = getPieceVertices(p);
+        // Performance: Use cached vertices for stationary pieces
+        const otherPts = p._cachedVertices;
         const snap = MathUtils.getClosestSnap(thisPts, otherPts, magnetSq, bestDistSq);
         if (snap) {
           bestDistSq = snap.distSq;
