@@ -7,6 +7,9 @@ const path = require('path');
 
 const PORT = 8080;
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
+const MAX_LEVELS = (process.env.MAX_LEVELS !== undefined && !isNaN(parseInt(process.env.MAX_LEVELS)))
+  ? parseInt(process.env.MAX_LEVELS)
+  : 500;
 const DEBUG = process.env.NODE_ENV === 'development';
 const API_TOKEN = process.env.API_TOKEN;
 
@@ -102,6 +105,9 @@ async function processWriteQueue() {
     if (existingIndex >= 0) {
       cachedLevels[existingIndex] = levelData;
     } else {
+      if (cachedLevels.length >= MAX_LEVELS) {
+        throw new Error('Maximum level limit reached');
+      }
       cachedLevels.push(levelData);
     }
     
@@ -121,8 +127,12 @@ async function processWriteQueue() {
   } catch (err) {
     logger.error('Error saving level:', err);
     if (!res.headersSent) {
-      res.writeHead(500, { ...securityHeaders, 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Failed to save level', details: err.message }));
+      const isLimitError = err.message === 'Maximum level limit reached';
+      res.writeHead(isLimitError ? 400 : 500, { ...securityHeaders, 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: isLimitError ? err.message : 'Failed to save level',
+        details: err.message
+      }));
     }
   } finally {
     if (fileHandle) {
