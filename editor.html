@@ -245,6 +245,7 @@
       }
     }
 
+    let notificationTimerId = null;
     function showNotification(message, type = 'info') {
       let notification = document.getElementById('notification');
       if (!notification) {
@@ -275,8 +276,8 @@
       requestAnimationFrame(() => {
         notification.style.transform = 'translateX(0)';
       });
-      
-      setTimeout(() => {
+      if (notificationTimerId) clearTimeout(notificationTimerId);
+      notificationTimerId = setTimeout(() => {
         notification.style.transform = 'translateX(400px)';
       }, CONFIG.NOTIFICATION_DURATION);
     }
@@ -329,15 +330,18 @@
         });
         
         // Handle double-click for desktop
+        let lastDblClickTime = 0;
         shape.on('dblclick', () => {
           shape.rotation(shape.rotation() + ROTATION_STEP);
           mainLayer.draw();
+          lastDblClickTime = Date.now();
         });
         
-        // Handle double-tap for mobile (prevent duplicate with dblclick)
+        // Handle double-tap for mobile (skip if dblclick just fired)
         let lastTapTime = 0;
         shape.on('tap', (e) => {
           const now = Date.now();
+          if (now - lastDblClickTime < 300) { lastTapTime = now; return; }
           if (now - lastTapTime < 300 && now - lastTapTime > 50) {
             // Double tap detected (between 50ms and 300ms)
             shape.rotation(shape.rotation() + ROTATION_STEP);
@@ -455,15 +459,18 @@
       currentPieces.forEach(piece => {
           const s = p.sol[piece.id()];
           if (s) {
-              piece.to({
-                  x: s.x,
-                  y: s.y,
-                  rotation: s.r,
-                  scaleX: s.sx,
-                  duration: 0.5
-              });
+              piece.x(s.x);
+              piece.y(s.y);
+              piece.rotation(s.r);
+              piece.scaleX(s.sx);
+          } else {
+              piece.x(BOARD_SIZE / 2);
+              piece.y(BOARD_SIZE / 2);
+              piece.rotation(0);
+              piece.scaleX(1);
           }
       });
+      mainLayer.draw();
     }
 
     function setupEvents() {
@@ -559,7 +566,9 @@
       const offsetY = targetCenter - centerY;
 
       const solution = {};
+      let hasInvalid = false;
       currentPieces.forEach(p => {
+        if (hasInvalid) return;
         // Apply offset to center the puzzle
         const newX = p.x() + offsetX;
         const newY = p.y() + offsetY;
@@ -567,6 +576,7 @@
         // Validate coordinates before saving
         if (!isFinite(newX) || !isFinite(newY)) {
           alert(`Invalid position for piece ${p.id()}`);
+          hasInvalid = true;
           return;
         }
 
@@ -577,6 +587,8 @@
           sx: Math.round(p.scaleX())
         };
       });
+
+      if (hasInvalid) return;
 
       const levelData = {
         name: name,
@@ -594,7 +606,14 @@
         },
         body: JSON.stringify(levelData)
       })
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) {
+          return response.json().catch(() => ({})).then(data => {
+            throw new Error(data.error || `Server error: ${response.status}`);
+          });
+        }
+        return response.json();
+      })
       .then(data => {
         if (data.success) {
           alert('Level saved successfully!');
@@ -606,7 +625,7 @@
       })
       .catch(err => {
         console.error('Error:', err);
-        alert('Failed to save level. Is the server running?');
+        alert(err.message || 'Failed to save level. Is the server running?');
       });
     }
 

@@ -8,7 +8,11 @@ const path = require('path');
 const PORT = 8080;
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 const DEBUG = process.env.NODE_ENV === 'development';
-const API_TOKEN = process.env.API_TOKEN || 'admin-token';
+const API_TOKEN = process.env.API_TOKEN;
+if (!API_TOKEN) {
+  console.error('FATAL: API_TOKEN environment variable is required');
+  process.exit(1);
+}
 
 // Logger utility - suppresses logs in production
 const logger = {
@@ -70,25 +74,35 @@ async function processWriteQueue() {
     try {
       fileHandle = await fsPromises.open(lockPath, 'wx');
     } catch (err) {
-      // If we can't get the lock, put the task back and retry later
-      writeQueue.unshift({ res, levelData });
-      fileWriteLock = false;
-      setTimeout(processWriteQueue, 50);
-      return;
+      // Lock file exists — check if it's stale (process crashed)
+      try {
+        const stat = await fsPromises.stat(lockPath);
+        const age = Date.now() - stat.mtimeMs;
+        if (age > 30000) {
+          // Stale lock — remove and retry
+          await fsPromises.unlink(lockPath);
+          fileHandle = await fsPromises.open(lockPath, 'wx');
+        } else {
+          throw err; // lock is held by a live process
+        }
+      } catch (retryErr) {
+        writeQueue.unshift({ res, levelData });
+        fileWriteLock = false;
+        setTimeout(processWriteQueue, 50);
+        return;
+      }
     }
 
-    // Read current levels if not cached
-    if (cachedLevels === null) {
-      cachedLevels = [];
-      try {
-        const data = await fsPromises.readFile(levelsPath, 'utf8');
-        if (data) {
-          cachedLevels = JSON.parse(data);
-        }
-      } catch (err) {
-        if (err.code !== 'ENOENT') {
-          logger.error('Error reading levels.json:', err);
-        }
+    // Always re-read to avoid overwriting external changes
+    cachedLevels = [];
+    try {
+      const data = await fsPromises.readFile(levelsPath, 'utf8');
+      if (data) {
+        cachedLevels = JSON.parse(data);
+      }
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        logger.error('Error reading levels.json:', err);
       }
     }
     
@@ -117,7 +131,7 @@ async function processWriteQueue() {
     logger.error('Error saving level:', err);
     if (!res.headersSent) {
       res.writeHead(500, { ...securityHeaders, 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Failed to save level', details: err.message }));
+      res.end(JSON.stringify({ error: 'Failed to save level' }));
     }
   } finally {
     if (fileHandle) {
@@ -175,18 +189,38 @@ const server = http.createServer(async (req, res) => {
         const body = Buffer.concat(chunks).toString('utf8');
         const newLevel = JSON.parse(body);
         
-        // Validate required fields
-        if (!newLevel.name || !newLevel.sol) {
+        // Validate required fields and types
+        if (typeof newLevel.name !== 'string' || newLevel.name.trim().length === 0) {
           res.writeHead(400, { ...securityHeaders, 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid level data: missing name or solution' }));
+          res.end(JSON.stringify({ error: 'Invalid level data: name must be a non-empty string' }));
           return;
+        }
+        if (typeof newLevel.sol !== 'object' || newLevel.sol === null || Array.isArray(newLevel.sol)) {
+          res.writeHead(400, { ...securityHeaders, 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid level data: sol must be an object' }));
+          return;
+        }
+        const VALID_PIECE_IDS = ['T1','T2','T3','T4','T5','SQ','PL'];
+        for (const [id, val] of Object.entries(newLevel.sol)) {
+          if (!VALID_PIECE_IDS.includes(id)) {
+            res.writeHead(400, { ...securityHeaders, 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Invalid level data: unknown piece id '${id}'` }));
+            return;
+          }
+          if (typeof val !== 'object' || val === null ||
+              typeof val.x !== 'number' || typeof val.y !== 'number' ||
+              typeof val.r !== 'number' || typeof val.sx !== 'number') {
+            res.writeHead(400, { ...securityHeaders, 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Invalid level data: malformed solution for piece '${id}'` }));
+            return;
+          }
         }
         
         // Queue the write operation to prevent race conditions
         queueLevelWrite(res, newLevel);
       } catch (e) {
         res.writeHead(400, { ...securityHeaders, 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid JSON', details: e.message }));
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
       }
     });
     return;
@@ -294,12 +328,15 @@ const server = http.createServer(async (req, res) => {
       res.end('404 Not Found');
     } else {
       res.writeHead(500, securityHeaders);
-      res.end('500 Internal Server Error: ' + err.code);
+      res.end('500 Internal Server Error');
     }
   }
 });
 
 if (require.main === module) {
+  // Clean up stale lock file from previous crash
+  fsPromises.unlink(path.join(__dirname, 'levels.json.lock')).catch(() => {});
+
   server.listen(PORT, () => {
     console.log(`Server running at http://127.0.0.1:${PORT}/`);
   });

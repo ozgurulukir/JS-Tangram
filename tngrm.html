@@ -340,7 +340,7 @@
         // Load saved progress
         const savedIndex = localStorage.getItem('tangram_puzzle_index');
         puzzleIndex = savedIndex ? parseInt(savedIndex, 10) : 0;
-        if (puzzleIndex >= PUZZLES.length) puzzleIndex = 0;
+        if (isNaN(puzzleIndex) || puzzleIndex >= PUZZLES.length) puzzleIndex = 0;
 
         loadPuzzle(puzzleIndex);
       } catch (err) {
@@ -358,6 +358,8 @@
         showNotification(errorMessage, 'error');
       }
     }
+
+    let notificationTimerId = null;
 
     function showNotification(message, type = 'info') {
       // Create or get existing notification element
@@ -393,7 +395,8 @@
       });
       
       // Auto dismiss after 5 seconds
-      setTimeout(() => {
+      if (notificationTimerId) clearTimeout(notificationTimerId);
+      notificationTimerId = setTimeout(() => {
         notification.style.transform = 'translateX(400px)';
       }, CONFIG.NOTIFICATION_DURATION);
     }
@@ -519,15 +522,18 @@
         });
         
         // Handle double-click for desktop
+        let lastDblClickTime = 0;
         shape.on('dblclick', () => {
           shape.rotation(shape.rotation() + ROTATION_STEP);
           mainLayer.draw();
+          lastDblClickTime = Date.now();
         });
         
-        // Handle double-tap for mobile (prevent duplicate with dblclick)
+        // Handle double-tap for mobile (skip if dblclick just fired)
         let lastTapTime = 0;
         shape.on('tap', (e) => {
           const now = Date.now();
+          if (now - lastDblClickTime < 300) { lastTapTime = now; return; }
           if (now - lastTapTime < 300 && now - lastTapTime > 50) {
             // Double tap detected (between 50ms and 300ms)
             shape.rotation(shape.rotation() + ROTATION_STEP);
@@ -794,7 +800,7 @@
         const config = s;
         p.to({
           x: config.x, y: config.y, rotation: config.r, scaleX: config.sx,
-          duration: CONFIG.ANIMATION_REVEAL_DURATION * 1000, easing: Konva.Easings.EaseInOut
+          duration: CONFIG.ANIMATION_REVEAL_DURATION, easing: Konva.Easings.EaseInOut
         });
       });
     }
@@ -824,7 +830,7 @@
         const s = sol[misplaced.id()];
         misplaced.to({
           x: s.x, y: s.y, rotation: s.r, scaleX: s.sx,
-          duration: CONFIG.ANIMATION_HINT_DURATION * 1000, easing: Konva.Easings.EaseInOut,
+          duration: CONFIG.ANIMATION_HINT_DURATION, easing: Konva.Easings.EaseInOut,
           onFinish: () => {
             misplaced.stroke('#f59e0b');
             misplaced.strokeWidth(5);
@@ -1008,17 +1014,38 @@
 
         const timeStr = pData ? `${Math.floor(pData.bestTime / 60).toString().padStart(2, '0')}:${(pData.bestTime % 60).toString().padStart(2, '0')}` : '--:--';
 
-        btn.innerHTML = `
-          <div class="flex justify-between items-start mb-2">
-            <span class="text-[10px] text-stone-400 font-black uppercase tracking-widest">Bölüm ${i + 1}</span>
-            ${isCompleted ? '<span class="text-emerald-500 text-sm">✓</span>' : ''}
-          </div>
-          <div class="text-xl font-black text-stone-800 mb-4">${p.name}</div>
-          <div class="flex items-center gap-2 mt-auto">
-            <span class="text-[10px] text-stone-400 font-bold uppercase tracking-widest">En İyi Süre:</span>
-            <span class="text-xs font-mono font-bold text-stone-600">${timeStr}</span>
-          </div>
-        `;
+        btn.innerHTML = '';
+
+        const header = document.createElement('div');
+        header.className = 'flex justify-between items-start mb-2';
+        const chapter = document.createElement('span');
+        chapter.className = 'text-[10px] text-stone-400 font-black uppercase tracking-widest';
+        chapter.textContent = `Bölüm ${i + 1}`;
+        header.appendChild(chapter);
+        if (isCompleted) {
+          const check = document.createElement('span');
+          check.className = 'text-emerald-500 text-sm';
+          check.textContent = '✓';
+          header.appendChild(check);
+        }
+        btn.appendChild(header);
+
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'text-xl font-black text-stone-800 mb-4';
+        nameDiv.textContent = p.name;
+        btn.appendChild(nameDiv);
+
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'flex items-center gap-2 mt-auto';
+        const timeLabel = document.createElement('span');
+        timeLabel.className = 'text-[10px] text-stone-400 font-bold uppercase tracking-widest';
+        timeLabel.textContent = 'En İyi Süre:';
+        timeDiv.appendChild(timeLabel);
+        const timeValue = document.createElement('span');
+        timeValue.className = 'text-xs font-mono font-bold text-stone-600';
+        timeValue.textContent = timeStr;
+        timeDiv.appendChild(timeValue);
+        btn.appendChild(timeDiv);
         btn.onclick = () => {
           loadPuzzle(i);
           closeLevelModal();
@@ -1036,7 +1063,7 @@
       modal.classList.remove('flex');
     }
 
-    function saveProgress(idx, time) {
+    function saveProgress(idx, time, retryCount = 0) {
       try {
         const progress = JSON.parse(localStorage.getItem('tangram_progress') || '{}');
         if (!progress[idx]) {
@@ -1049,11 +1076,10 @@
         }
         localStorage.setItem('tangram_progress', JSON.stringify(progress));
       } catch (e) {
-        if (e.name === 'QuotaExceededError') {
+        if (e.name === 'QuotaExceededError' && retryCount < 1) {
           logger.warn('LocalStorage quota exceeded. Clearing old data...');
           localStorage.removeItem('tangram_progress');
-          // Retry with fresh storage
-          saveProgress(idx, time);
+          saveProgress(idx, time, retryCount + 1);
         } else {
           logger.error('Failed to save progress:', e);
         }

@@ -1,9 +1,16 @@
+// Set API_TOKEN before requiring server.js (it calls process.exit without it)
+process.env.API_TOKEN = 'test-token';
+
 const test = require('node:test');
 const assert = require('node:assert');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const server = require('../server.js');
+
+const LEVELS_PATH = path.join(__dirname, '../levels.json');
+let originalLevelsContent;
+
 
 test('Static file server', async (t) => {
   let address;
@@ -17,6 +24,7 @@ test('Static file server', async (t) => {
   });
 
   const baseUrl = `http://127.0.0.1:${address.port}`;
+  originalLevelsContent = fs.readFileSync(LEVELS_PATH, 'utf8');
 
   await t.test('returns 200 for root path (/)', async () => {
     const response = await fetch(`${baseUrl}/`);
@@ -78,6 +86,17 @@ test('Static file server', async (t) => {
     assert.ok([403, 404].includes(response.status));
   });
 
+
+  await t.test('returns 400 for null byte injection', async () => {
+    const response = await fetch(`${baseUrl}/tngrm.html%00`);
+    assert.strictEqual(response.status, 400);
+  });
+
+  await t.test('returns 403 for URL-encoded path traversal', async () => {
+    const response = await fetch(`${baseUrl}/%2e%2e/%2e%2e/server.js`);
+    assert.ok([403, 400].includes(response.status));
+  });
+
   await t.test('POST /api/save-level with missing authorization header', async () => {
     const levelData = {
       name: 'Test Level',
@@ -126,7 +145,7 @@ test('Static file server', async (t) => {
 
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
       body: JSON.stringify(levelData)
     });
 
@@ -138,7 +157,7 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with invalid JSON', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
       body: 'invalid json'
     });
 
@@ -150,31 +169,31 @@ test('Static file server', async (t) => {
   await t.test('POST /api/save-level with missing name field', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
       body: JSON.stringify({ sol: { T1: { x: 0, y: 0 } } }) // missing name
     });
 
     assert.strictEqual(response.status, 400);
     const data = await response.json();
-    assert.strictEqual(data.error, 'Invalid level data: missing name or solution');
+    assert.strictEqual(data.error, 'Invalid level data: name must be a non-empty string');
   });
 
   await t.test('POST /api/save-level with missing sol field', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
       body: JSON.stringify({ name: 'Test' }) // missing sol
     });
 
     assert.strictEqual(response.status, 400);
     const data = await response.json();
-    assert.strictEqual(data.error, 'Invalid level data: missing name or solution');
+    assert.strictEqual(data.error, 'Invalid level data: sol must be an object');
   });
 
   await t.test('POST /api/save-level with empty body', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
       body: ''
     });
 
@@ -186,7 +205,7 @@ test('Static file server', async (t) => {
     for (const payload of payloads) {
       const response = await fetch(`${baseUrl}/api/save-level`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
         body: payload
       });
       assert.strictEqual(response.status, 400);
@@ -194,26 +213,26 @@ test('Static file server', async (t) => {
 
       // Depending on the primitive type, it may fail JSON.parse (triggering 'Invalid JSON')
       // or pass JSON.parse but fail schema validation ('Invalid level data...').
-      assert.ok(data.error === 'Invalid JSON' || data.error === 'Invalid level data: missing name or solution');
+      assert.ok(data.error === 'Invalid JSON' || data.error === 'Invalid level data: name must be a non-empty string' || data.error === 'Invalid level data: sol must be an object');
     }
   });
 
   await t.test('POST /api/save-level with array instead of object', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
       body: JSON.stringify([{ name: 'Test', sol: {} }])
     });
 
     assert.strictEqual(response.status, 400);
     const data = await response.json();
-    assert.strictEqual(data.error, 'Invalid level data: missing name or solution');
+    assert.strictEqual(data.error, 'Invalid level data: name must be a non-empty string');
   });
 
   await t.test('POST /api/save-level with malformed JSON (missing quote)', async () => {
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
       body: '{"name": "Test", "sol": {T1: {}}}' // missing quotes around T1
     });
 
@@ -227,7 +246,7 @@ test('Static file server', async (t) => {
     const largeString = 'a'.repeat(1024 * 1024 + 10);
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
       body: largeString
     });
 
@@ -253,18 +272,20 @@ test('Static file server', async (t) => {
 
       const response = await fetch(`${baseUrl}/api/save-level`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
         body: JSON.stringify(levelData)
       });
 
       assert.strictEqual(response.status, 500);
       const data = await response.json();
       assert.strictEqual(data.error, 'Failed to save level');
-      assert.strictEqual(data.details, 'Simulated write error');
     } finally {
       // Restore the original function
       fs.promises.writeFile = originalWriteFile;
     }
+    // Allow the server's async finally block to complete
+    await new Promise(resolve => setTimeout(resolve, 200));
+    server.cachedLevels = null;
   });
 
   await t.test('POST /api/save-level updates existing level with same name', async () => {
@@ -275,7 +296,7 @@ test('Static file server', async (t) => {
     };
     await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
       body: JSON.stringify(levelData1)
     });
 
@@ -286,7 +307,7 @@ test('Static file server', async (t) => {
     };
     const response = await fetch(`${baseUrl}/api/save-level`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer admin-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
       body: JSON.stringify(levelData2)
     });
 
@@ -319,14 +340,72 @@ test('Static file server', async (t) => {
 
       assert.strictEqual(response.status, 500);
       const text = await response.text();
-      assert.strictEqual(text, '500 Internal Server Error: EACCES');
+    assert.strictEqual(text, '500 Internal Server Error');
     } finally {
       // Restore the original function
       fs.promises.readFile = originalReadFile;
     }
   });
 
+
+  await t.test('POST /api/save-level rejects name as number', async () => {
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
+      body: JSON.stringify({ name: 42, sol: { T1: { x: 0, y: 0, r: 0, sx: 1 } } })
+    });
+    assert.strictEqual(response.status, 400);
+    const data = await response.json();
+    assert.strictEqual(data.error, 'Invalid level data: name must be a non-empty string');
+  });
+
+  await t.test('POST /api/save-level rejects empty name', async () => {
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
+      body: JSON.stringify({ name: '', sol: { T1: { x: 0, y: 0, r: 0, sx: 1 } } })
+    });
+    assert.strictEqual(response.status, 400);
+    const data = await response.json();
+    assert.strictEqual(data.error, 'Invalid level data: name must be a non-empty string');
+  });
+
+  await t.test('POST /api/save-level rejects sol as string', async () => {
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
+      body: JSON.stringify({ name: 'Test', sol: 'invalid' })
+    });
+    assert.strictEqual(response.status, 400);
+    const data = await response.json();
+    assert.strictEqual(data.error, 'Invalid level data: sol must be an object');
+  });
+
+  await t.test('POST /api/save-level rejects unknown piece id', async () => {
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
+      body: JSON.stringify({ name: 'Test', sol: { XX: { x: 0, y: 0, r: 0, sx: 1 } } })
+    });
+    assert.strictEqual(response.status, 400);
+    const data = await response.json();
+    assert.ok(data.error.includes('unknown piece id'), `Expected unknown piece id error, got: ${data.error}`);
+  });
+
+  await t.test('POST /api/save-level rejects malformed solution value', async () => {
+    const response = await fetch(`${baseUrl}/api/save-level`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
+      body: JSON.stringify({ name: 'Test', sol: { T1: 'not-an-object' } })
+    });
+    assert.strictEqual(response.status, 400);
+    const data = await response.json();
+    assert.ok(data.error.includes('malformed solution for piece'), `Expected malformed solution error, got: ${data.error}`);
+  });
+
   // Close the server after tests
+  fs.writeFileSync(LEVELS_PATH, originalLevelsContent);
+
   await new Promise((resolve) => {
     server.close(resolve);
   });

@@ -150,6 +150,18 @@ test('Validation Logic', async (t) => {
       const result = checkShapeDimensions(100, 100, 100, 84, 0.15);
       assert.strictEqual(result, false);
     });
+
+    await t2.test('returns true when diff exactly equals tolerance', () => {
+      // Target: 100, Current: 115. Tolerance: 0.15 * 100 = 15. Diff = 15 <= 15 (exact boundary)
+      const result = checkShapeDimensions(100, 100, 115, 100, 0.15);
+      assert.strictEqual(result, true);
+    });
+
+    await t2.test('returns false when diff is 1 above tolerance', () => {
+      // Target: 100, Current: 116. Tolerance: 0.15 * 100 = 15. Diff = 16 > 15
+      const result = checkShapeDimensions(100, 100, 116, 100, 0.15);
+      assert.strictEqual(result, false);
+    });
   });
 
   await t.test('calculateJaccardSimilarity', async (t2) => {
@@ -180,7 +192,7 @@ test('Validation Logic', async (t) => {
       assert.strictEqual(similarity, 0.0);
     });
 
-    await t2.test('calculates correct partial similarity (50%)', () => {
+    await t2.test('calculates correct partial similarity (33%)', () => {
       // shape 1 has pixels at idx 0, 1
       const data1 = generateImgData([255, 255, 0, 0]);
       // shape 2 has pixels at idx 1, 2
